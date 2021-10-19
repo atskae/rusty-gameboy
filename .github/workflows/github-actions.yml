@@ -16,7 +16,11 @@ jobs:
     - name: Run Unit Tests
       run: cargo test --verbose --all
     - name: Static Checks
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.9"
       run: |
-        pip install pre-commit
-        pre-commit install
+        python --version;
+        pip install pre-commit;
+        pre-commit install;
         pre-commit run --all-files -v --show-diff-on-failure
