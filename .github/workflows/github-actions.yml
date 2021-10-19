@@ -1,0 +1,21 @@
+name: GitHub Actions
+on: [push]
+jobs:
+  test:
+    runs-on: macos-10.15
+    steps:
+    - name: Print Run Information
+      run: |
+        echo "Operating System: ${{ runner.os }}"
+        echo "Repository: ${{ github.repository }}."
+        echo "Branch: ${{ github.ref }}"
+    - name: Checkout Repository Code
+      uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --verbose --all
+    - name: Run Unit Tests
+      run: cargo test --verbose --all
+    - name: Static Checks
+      run: |
+        pre-commit install
+        pre-commit run --all-files -v --show-diff-on-failure
