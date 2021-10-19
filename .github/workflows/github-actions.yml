@@ -17,5 +17,6 @@ jobs:
       run: cargo test --verbose --all
     - name: Static Checks
       run: |
+        pip install pre-commit
         pre-commit install
         pre-commit run --all-files -v --show-diff-on-failure
