@@ -1,0 +1,35 @@
+exclude: target/
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.0.1
+  hooks:
+  - id: check-merge-conflict
+  - id: check-toml
+  - id: check-yaml
+  - id: end-of-file-fixer
+  - id: no-commit-to-branch
+  - id: trailing-whitespace
+- repo: local
+  hooks:
+  - id: rustfmt
+    name: rustfmt
+    description: Rust files formatter
+    language: rust
+    types: [rust]
+    entry: cargo fmt
+    args: ["--", "--check"] # only list errors, don't modify files
+  - id: cargo-check
+    name: cargo check
+    description: Compilation check for local package and dependencies
+    language: rust
+    types: [rust]
+    pass_filenames: false
+    entry: cargo check
+  - id: clippy
+    name: clippy
+    description: Rust linter
+    language: rust
+    types: [rust]
+    pass_filenames: false
+    entry: cargo clippy
+    args: ["--", "-D", "warnings"] # return failure if warnings are emitted

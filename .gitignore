@@ -1,0 +1,7 @@
+# Cargo-generated (compiled files, executables, metadata)
+debug/
+target/
+Cargo.lock
+
+# rustfmt files
+**/*.rs.bk
