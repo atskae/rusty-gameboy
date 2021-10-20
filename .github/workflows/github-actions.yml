@@ -9,6 +9,15 @@ jobs:
         echo "Operating System: ${{ runner.os }}"
         echo "Repository: ${{ github.repository }}."
         echo "Branch: ${{ github.ref }}"
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: Checkout Repository Code
       uses: actions/checkout@v2
     - name: Build
@@ -20,8 +29,6 @@ jobs:
       with:
         python-version: "3.9"
     - name: Static Checks
-      run: |
-        python --version;
-        pip install pre-commit;
-        pre-commit install;
-        pre-commit run --all-files -v --show-diff-on-failure
+      uses: pre-commit/action@v2.0.3
+      with:
+        extra_args: --all-files -v --hook-stage push
