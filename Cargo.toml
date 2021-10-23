@@ -6,6 +6,7 @@ repository = "https://github.com/atskae/rusty-gameboy"
 keywords = ["gameboy"]
 
 [dependencies]
+clap = {version = "2.33", features = ["yaml"]}
 env_logger = "0.9"
 log = "0.4"
 
