@@ -16,7 +16,7 @@ repos:
     language: rust
     types: [rust]
     entry: cargo fmt
-    args: ["--", "--check"] # only list errors, don't modify files
+    args: ["--"] # automatically format files
   - id: cargo-check
     name: cargo check
     description: Compilation check for local package and dependencies
