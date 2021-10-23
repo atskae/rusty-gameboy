@@ -1,0 +1,21 @@
+name: rusty-gameboy
+
+settings:
+    - SubcommandRequiredElseHelp
+
+args:
+    - rom:
+        long: rom
+        help: The path to the GameBoy ROM
+        takes_value: true
+        required: true
+
+subcommands:
+    - run:
+        help: Run the GameBoy ROM
+        long: run
+        required: true
+    - disassemble:
+        help: Print the disassembled instructions of the GameBoy ROM only
+        long: disassemble
+        required: true
