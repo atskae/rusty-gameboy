@@ -2,6 +2,11 @@
 
 Notes on how the GameBoy works. [Old README of resources](https://github.com/atskae/gameboy-emulator/tree/master/res).
 
+## Links
+* [The Ultimate Game Boy Talk](https://www.youtube.com/watch?v=HyzD8pNlpwI)
+* [Opcode table](https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html)
+    * Pick column first, then row
+
 Refresher from [The Ultimate Game Boy Talk](https://www.youtube.com/watch?v=HyzD8pNlpwI):
 
 ## DMG-CPU
@@ -119,6 +124,3 @@ Refresher from [The Ultimate Game Boy Talk](https://www.youtube.com/watch?v=HyzD
 ## Other
 * GameBoy Game Development
 * GameBoy Camera
-
-## Resources
-* [The Ultimate Game Boy Talk](https://www.youtube.com/watch?v=HyzD8pNlpwI)
