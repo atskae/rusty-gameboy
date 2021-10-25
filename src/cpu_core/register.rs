@@ -6,6 +6,10 @@ pub trait RegisterOperation {
     fn write(&mut self, value: u16);
     fn write_upper(&mut self, value: u8);
     fn write_lower(&mut self, value: u8);
+
+    // Increment or decrement by a delta value
+    fn increment(&mut self, delta: u16);
+    fn decrement(&mut self, delta: u16);
 }
 
 /// 16-bit register
@@ -52,6 +56,14 @@ impl RegisterOperation for Register {
         self.value &= 0b1111_1111_0000_0000;
         // Write the bits
         self.value |= value as u16;
+    }
+
+    fn increment(&mut self, delta: u16) {
+        self.value += delta;
+    }
+
+    fn decrement(&mut self, delta: u16) {
+        self.value -= delta;
     }
 }
 
