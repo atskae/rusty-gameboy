@@ -22,6 +22,8 @@ enum RegIndex {
     /// Program counter
     PC,
     NumRegs,
+    /// Custom for debugging
+    Invalid,
 }
 
 impl Index<RegIndex> for Vec<Register> {
@@ -40,6 +42,7 @@ impl IndexMut<RegIndex> for Vec<Register> {
 #[derive(Default)] // needed so Register initalizes to zero automatically
 pub struct Cpu {
     regs: Vec<Register>,
+    cycle: u16,
     // Loaded ROM
     rom: Vec<u8>,
 }
@@ -53,6 +56,7 @@ impl fmt::Display for Cpu {
         );
         let registers = format!(
             "
+            == Cycle {} ==
             ROM: {} bytes
             Registers
             AF: {} {}
@@ -62,6 +66,7 @@ impl fmt::Display for Cpu {
             stack_pointer: {}
             program_counter: {}
             ",
+            self.cycle,
             self.rom.len(),
             self.regs[RegIndex::AF].read_upper(),
             self.regs[RegIndex::AF].read_lower(),
@@ -110,7 +115,7 @@ impl Cpu {
     // Usually this is the instruction size in bytes, but for control-flow intructions
     // (such as Jump), the program counter increment is zero.
 
-    fn load_imm16_sp(&mut self) -> u16 {
+    fn ld_d16_sp(&mut self) -> u16 {
         let pc = self.regs[RegIndex::PC].read() as usize; // points to the opcode
         let mut imm16: u16 = self.rom[pc + 1] as u16;
         imm16 <<= 8;
@@ -119,12 +124,13 @@ impl Cpu {
         // Update stack pointer
         self.regs[RegIndex::SP].write(imm16);
 
+        self.cycle += 12;
         2
     }
 
     // cc[index]
     // https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
-    fn cond_code(&self, index: u8) -> bool {
+    fn cc(&self, index: u8) -> bool {
         let flag_reg_val: u8 = self.regs[RegIndex::AF].read_lower();
         let condition: bool = match index {
             0 => (flag_reg_val & 0b1000_0000) >> 7 == 0, // NZ
@@ -140,12 +146,36 @@ impl Cpu {
         condition
     }
 
+    fn rp(&self, index: u8) -> RegIndex {
+        match index {
+            0 => RegIndex::BC,
+            1 => RegIndex::DE,
+            2 => RegIndex::HL,
+            3 => RegIndex::SP,
+            _ => RegIndex::Invalid,
+        }
+    }
+
+    // Loads a 16-bit value into a register
+    fn ld_rp_d16(&mut self, index: u8) -> u16 {
+        let pc = self.regs[RegIndex::PC].read() as usize; // points to the opcode
+        let mut imm16: u16 = self.rom[pc + 1] as u16;
+        imm16 <<= 8;
+        imm16 |= self.rom[pc + 2] as u16;
+
+        let reg_index: RegIndex = self.rp(index);
+        self.regs[reg_index].write(imm16);
+
+        self.cycle += 12;
+        3
+    }
+
     /// If cond is true, check condition of the flag (specified by y)
     /// to decide whether to jump or not
     fn jr_d8(&mut self, cond: bool, y: u8) -> u16 {
         debug!("Jump, cond={}, y={}", cond, y);
         let pc_increment = 0;
-        if cond && !self.cond_code(y - 4) {
+        if cond && !self.cc(y - 4) {
             return pc_increment;
         }
 
@@ -162,6 +192,7 @@ impl Cpu {
         }
         self.regs[RegIndex::PC].write(new_pc);
 
+        self.cycle += 12;
         pc_increment
     }
 
@@ -178,8 +209,8 @@ impl Cpu {
         let x: u8 = (opcode_byte & 0b1100_0000) >> 6;
         let y: u8 = (opcode_byte & 0b0011_1000) >> 3;
         let z: u8 = opcode_byte & 0b0000_0011;
-        //let p: u8 = (y & 0b110) >> 1;
-        //let q: u8 = y & 0b001;
+        let p: u8 = (y & 0b110) >> 1;
+        let q: u8 = y & 0b001;
 
         // Unprefixed opcodes
         let pc_increment: u16 = match x {
@@ -187,10 +218,17 @@ impl Cpu {
                 match z {
                     0 => match y {
                         0 => 1,                    // NOP
-                        1 => self.load_imm16_sp(), // Load immediate into SP
+                        1 => self.ld_d16_sp(),     // Load immediate into SP
                         2 => 2,                    // STOP
                         3 => self.jr_d8(false, y), // Jump
                         _ => self.jr_d8(true, y),  // Conditional jump
+                    },
+                    1 => match q {
+                        0 => self.ld_rp_d16(p),
+                        _ => {
+                            warn!("Not implemented this case of q!");
+                            0
+                        }
                     },
                     _ => {
                         warn!("Not implemented this case of z!");
@@ -213,5 +251,6 @@ impl Cpu {
 
         info!("Running execute()");
         self.execute();
+        debug!("{}", self);
     }
 }
