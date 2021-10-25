@@ -6,6 +6,7 @@ Notes on how the GameBoy works. [Old README of resources](https://github.com/ats
 * [The Ultimate Game Boy Talk](https://www.youtube.com/watch?v=HyzD8pNlpwI)
 * [Opcode table](https://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html)
     * Pick column first, then row
+* [Decoding Z80 opcodes (for the GameBoy)](https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html)
 
 Refresher from [The Ultimate Game Boy Talk](https://www.youtube.com/watch?v=HyzD8pNlpwI):
 
