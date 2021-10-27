@@ -8,8 +8,8 @@ pub trait RegisterOperation {
     fn write_lower(&mut self, value: u8);
 
     // Increment or decrement by a delta value
-    fn increment(&mut self, delta: u16);
-    fn decrement(&mut self, delta: u16);
+    fn increment(&mut self, delta: u16) -> Option<u16>;
+    fn decrement(&mut self, delta: u16) -> Option<u16>;
 }
 
 /// 16-bit register
@@ -58,18 +58,24 @@ impl RegisterOperation for Register {
         self.value |= value as u16;
     }
 
-    fn increment(&mut self, delta: u16) {
-        self.value += delta;
+    // If overflow occurs, return None
+    fn increment(&mut self, delta: u16) -> Option<u16> {
+        let overflow_check = self.value.checked_add(delta);
+        self.value = self.value.wrapping_add(delta);
+        overflow_check
     }
 
-    fn decrement(&mut self, delta: u16) {
-        self.value -= delta;
+    fn decrement(&mut self, delta: u16) -> Option<u16> {
+        let overflow_check = self.value.checked_sub(delta);
+        self.value = self.value.wrapping_sub(delta);
+        overflow_check
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*; // use the same imports as outer scope
+    use log::debug;
     use test_env_log::test;
 
     #[test]
@@ -129,5 +135,69 @@ mod tests {
         reg.write_lower(lower);
         assert_eq!(reg.read_lower(), lower);
         assert_eq!(reg.read(), 0b0011_0010_1111_0101);
+    }
+
+    #[test]
+    fn test_increment() {
+        let val = 34521;
+        let mut reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+
+        let delta = 432;
+        reg.increment(delta);
+
+        assert_eq!(reg.read(), val + delta);
+    }
+
+    #[test]
+    fn test_increment_max_overflow() {
+        let val = u16::MAX - 1000;
+        let mut reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+
+        let delta = 2000;
+        let overflow_check = reg.increment(delta);
+
+        assert_eq!(overflow_check, None);
+        // delta - <distance from u16::MAX> - 1
+        assert_eq!(reg.read(), delta - 1000 - 1);
+    }
+
+    #[test]
+    fn test_increment_u16_max_overflow() {
+        let val = u16::MAX;
+        let mut reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+
+        let delta = 432;
+        let overflow_check = reg.increment(delta);
+
+        assert_eq!(overflow_check, None);
+        assert_eq!(reg.read(), delta - 1);
+    }
+
+    #[test]
+    fn test_decrement() {
+        let val = 34521;
+        let mut reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+
+        let delta = 432;
+        reg.decrement(delta);
+
+        assert_eq!(reg.read(), val - delta);
+    }
+
+    #[test]
+    fn test_decrement_overflow() {
+        let mut reg: Register = Default::default();
+        assert_eq!(reg.read(), 0);
+
+        let delta = 432;
+        let overflow_check = reg.decrement(delta);
+
+        assert_eq!(overflow_check, None);
+        debug!("u16::MAX: {}", u16::MAX);
+        assert_eq!(reg.read(), u16::MAX - delta + 1);
     }
 }

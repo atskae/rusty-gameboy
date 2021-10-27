@@ -111,6 +111,14 @@ impl Cpu {
         cpu
     }
 
+    // Update register
+    fn increment_reg(&mut self, reg_index: RegIndex, delta: u16) {
+        // Set the carry flag since the operation overflowed
+        if self.regs[reg_index].increment(delta) == None {
+            unimplemented!("Setting carry flag on overflow is not implemented!");
+        }
+    }
+
     // Intruction logic
     // Each function returns the number of bytes to increment the program counter
     // Usually this is the instruction size in bytes, but for control-flow intructions
@@ -227,25 +235,16 @@ impl Cpu {
                     },
                     1 => match q {
                         0 => self.ld_rp_d16(p),
-                        _ => {
-                            warn!("Not implemented this case of q!");
-                            0
-                        }
+                        _ => unimplemented!("Not implemented this case of q!"),
                     },
-                    _ => {
-                        warn!("Not implemented this case of z!");
-                        0
-                    }
+                    _ => unimplemented!("Not implemented this case of z!"),
                 }
             }
-            _ => {
-                debug!("Not implemented this case of x!");
-                0
-            }
+            _ => unimplemented!("Not implemented this case of x!"),
         };
 
         // Increment the program counter
-        self.regs[RegIndex::PC].increment(pc_increment);
+        self.increment_reg(RegIndex::PC, pc_increment);
     }
 
     pub fn start(&mut self, subcommand: Subcommand) {
