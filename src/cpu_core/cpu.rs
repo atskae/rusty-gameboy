@@ -9,6 +9,7 @@ use crate::cli::Subcommand;
 use crate::cpu_core::register::{Register, RegisterOperation};
 
 // Indices into Cpu::registers vector
+#[derive(Clone, Copy, Debug)]
 #[repr(u8)]
 enum RegIndex {
     /// Accumulator and Flag
@@ -166,6 +167,7 @@ impl Cpu {
         let reg_index: RegIndex = self.rp(index);
         self.regs[reg_index].write(imm16);
 
+        debug!("LD {:?}, {:#02x}", reg_index, imm16);
         self.cycle += 12;
         3
     }
