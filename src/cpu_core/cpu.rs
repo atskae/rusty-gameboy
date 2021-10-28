@@ -119,26 +119,13 @@ impl Cpu {
         }
     }
 
-    // Intruction logic
-    // Each function returns the number of bytes to increment the program counter
-    // Usually this is the instruction size in bytes, but for control-flow intructions
-    // (such as Jump), the program counter increment is zero.
-
-    fn ld_d16_sp(&mut self) -> u16 {
-        let pc = self.regs[RegIndex::PC].read() as usize; // points to the opcode
-        let mut imm16: u16 = self.rom[pc + 1] as u16;
-        imm16 <<= 8;
-        imm16 |= self.rom[pc + 2] as u16;
-
-        // Update stack pointer
-        self.regs[RegIndex::SP].write(imm16);
-
-        self.cycle += 12;
-        2
-    }
+    /*
+        Helper methods for executing instructions.
+        Methods are named after the tables/logic defined here:
+            https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
+    */
 
     // cc[index]
-    // https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
     fn cc(&self, index: u8) -> bool {
         let flag_reg_val: u8 = self.regs[RegIndex::AF].read_lower();
         let condition: bool = match index {
@@ -163,6 +150,27 @@ impl Cpu {
             3 => RegIndex::SP,
             _ => RegIndex::Invalid,
         }
+    }
+
+    /*
+        Actual instruction execution. Modifies Cpu state.
+        Each function returns the number of bytes to increment the program counter.
+        Usually this is the instruction size in bytes, but for control-flow intructions
+            (such as Jump), the program counter increment is zero.
+    */
+
+    /// Load a 16-bit value into the stack pointer
+    fn ld_d16_sp(&mut self) -> u16 {
+        let pc = self.regs[RegIndex::PC].read() as usize; // points to the opcode
+        let mut imm16: u16 = self.rom[pc + 1] as u16;
+        imm16 <<= 8;
+        imm16 |= self.rom[pc + 2] as u16;
+
+        // Update stack pointer
+        self.regs[RegIndex::SP].write(imm16);
+
+        self.cycle += 12;
+        2
     }
 
     // Loads a 16-bit value into a register
