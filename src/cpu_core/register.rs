@@ -159,8 +159,10 @@ mod tests {
         let overflow_check = reg.increment(delta);
 
         assert_eq!(overflow_check, None);
-        // delta - <distance from u16::MAX> - 1
-        assert_eq!(reg.read(), delta - 1000 - 1);
+        // wrapping_add() is equivalent mod u16::max
+        // Need to compute in u32 as the temporary result cannot fit in u16
+        let expected: u16 = ((val as u32) + (delta as u32) % (u16::MAX as u32 + 1)) as u16;
+        assert_eq!(reg.read(), expected);
     }
 
     #[test]
@@ -173,7 +175,8 @@ mod tests {
         let overflow_check = reg.increment(delta);
 
         assert_eq!(overflow_check, None);
-        assert_eq!(reg.read(), delta - 1);
+        let expected: u16 = ((val as u32) + (delta as u32) % (u16::MAX as u32 + 1)) as u16;
+        assert_eq!(reg.read(), expected);
     }
 
     #[test]
@@ -189,7 +192,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decrement_overflow() {
+    fn test_decrement_from_zero_overflow() {
         let mut reg: Register = Default::default();
         assert_eq!(reg.read(), 0);
 
@@ -197,7 +200,21 @@ mod tests {
         let overflow_check = reg.decrement(delta);
 
         assert_eq!(overflow_check, None);
-        debug!("u16::MAX: {}", u16::MAX);
         assert_eq!(reg.read(), u16::MAX - delta + 1);
+    }
+
+    #[test]
+    fn test_decrement_overflow() {
+        let val = 500;
+        let mut reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+
+        let delta = 1000;
+        assert!(delta > val);
+        let overflow_check = reg.decrement(delta);
+
+        assert_eq!(overflow_check, None);
+        let expected = u16::MAX - (delta - val) + 1;
+        assert_eq!(reg.read(), expected);
     }
 }
