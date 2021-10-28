@@ -301,17 +301,20 @@ mod tests {
     #[test]
     /// Test that execute() correctly decodes
     fn test_ld_d16_sp_execute() {
+        // 0x00 are unused bytes; these are inserted to
+        // test ROM reads at arbitrary PC values
         let rom: Vec<u8> = vec![
-            0x31, // Opcode
+            0x00, 0x00, 0x31, // Opcode
             0x41, // First byte of 16-bit data
             0x23, // Second byte of 16-bit data
-            0x00, // Unused data
-            0x00, // Unused data
+            0x00, 0x00,
         ];
         let mut cpu = Cpu::new_from_vec(rom);
+        let start_pc = 2;
+        cpu.regs[RegIndex::PC].write(start_pc);
         cpu.execute();
 
-        assert_eq!(cpu.read_pc(), 3); // size of instruction
+        assert_eq!(cpu.read_pc(), start_pc + 3); // size of instruction
         assert_eq!(read_sp(cpu), 0x4123);
     }
 }
