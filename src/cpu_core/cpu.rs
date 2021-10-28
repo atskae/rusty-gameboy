@@ -292,6 +292,8 @@ impl Cpu {
 mod tests {
     use super::*; // use the same imports as outer scope
 
+    // Used until cpu.read_sp() is actually used somewhere
+    // outside the test environment...
     fn read_sp(cpu: Cpu) -> u16 {
         cpu.regs[RegIndex::SP].read()
     }
