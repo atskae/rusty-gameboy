@@ -85,7 +85,7 @@ impl fmt::Display for Cpu {
 }
 
 impl Cpu {
-    pub fn new(rom_path: PathBuf) -> Cpu {
+    pub fn new() -> Cpu {
         let mut cpu: Cpu = Cpu {
             regs: Vec::with_capacity(RegIndex::NumRegs as usize), // only sets upper bound
             ..Default::default()
@@ -97,19 +97,34 @@ impl Cpu {
         }
         debug!("Initialized {} registers", cpu.regs.len());
 
+        cpu
+    }
+    /// Create a Cpu from a Rom as a vector of bytes
+    pub fn new_from_vec(rom: Vec<u8>) -> Cpu {
+        let mut cpu = Cpu::new();
+        cpu.rom = rom;
+        cpu
+    }
+
+    /// Create a Cpu from a Rom path
+    pub fn new_from_path(rom_path: PathBuf) -> Cpu {
         // Load ROM
         if rom_path.exists() {
-            cpu.rom = fs::read(rom_path).unwrap();
+            let cpu = Cpu::new_from_vec(fs::read(rom_path).unwrap());
             debug!(
                 "Loaded ROM (byte preview): {:#02x} {:#02x} {:#02x}",
                 cpu.rom[0], cpu.rom[1], cpu.rom[2]
             );
+            cpu
         } else {
             warn!("ROM file does not exist! Nothing was loaded.");
+            Cpu::new() // return default
         }
-
-        cpu
     }
+
+    /*
+        Register helper methods
+    */
 
     // Update register
     fn increment_reg(&mut self, reg_index: RegIndex, delta: u16) {
@@ -118,6 +133,15 @@ impl Cpu {
             unimplemented!("Setting carry flag on overflow is not implemented!");
         }
     }
+
+    fn read_pc(&self) -> u16 {
+        self.regs[RegIndex::PC].read()
+    }
+
+    // Uncomment when actually used
+    //fn read_sp(&self) -> u16 {
+    //    self.regs[RegIndex::SP].read()
+    //}
 
     /*
         Helper methods for executing instructions.
@@ -161,7 +185,7 @@ impl Cpu {
 
     /// Load a 16-bit value into the stack pointer
     fn ld_d16_sp(&mut self) -> u16 {
-        let pc = self.regs[RegIndex::PC].read() as usize; // points to the opcode
+        let pc = self.read_pc() as usize; // points to the opcode
         let mut imm16: u16 = self.rom[pc + 1] as u16;
         imm16 <<= 8;
         imm16 |= self.rom[pc + 2] as u16;
@@ -170,12 +194,12 @@ impl Cpu {
         self.regs[RegIndex::SP].write(imm16);
 
         self.cycle += 12;
-        2
+        3
     }
 
     // Loads a 16-bit value into a register
-    fn ld_rp_d16(&mut self, index: u8) -> u16 {
-        let pc = self.regs[RegIndex::PC].read() as usize; // points to the opcode
+    fn ld_d16_rp(&mut self, index: u8) -> u16 {
+        let pc = self.read_pc() as usize; // points to the opcode
         let mut imm16: u16 = self.rom[pc + 1] as u16;
         imm16 <<= 8;
         imm16 |= self.rom[pc + 2] as u16;
@@ -197,7 +221,7 @@ impl Cpu {
             return pc_increment;
         }
 
-        let pc = self.regs[RegIndex::PC].read() as usize; // points to the opcode
+        let pc = self.read_pc() as usize; // points to the opcode
         let displacement: i8 = self.rom[pc + 1] as i8;
         debug!("displacement: {}", displacement);
 
@@ -242,7 +266,7 @@ impl Cpu {
                         _ => self.jr_d8(true, y),  // Conditional jump
                     },
                     1 => match q {
-                        0 => self.ld_rp_d16(p),
+                        0 => self.ld_d16_rp(p),
                         _ => unimplemented!("Not implemented this case of q!"),
                     },
                     _ => unimplemented!("Not implemented this case of z!"),
@@ -261,5 +285,31 @@ impl Cpu {
         info!("Running execute()");
         self.execute();
         debug!("{}", self);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*; // use the same imports as outer scope
+
+    fn read_sp(cpu: Cpu) -> u16 {
+        cpu.regs[RegIndex::SP].read()
+    }
+
+    #[test]
+    /// Test that execute() correctly decodes
+    fn test_ld_d16_sp_execute() {
+        let rom: Vec<u8> = vec![
+            0x31, // Opcode
+            0x41, // First byte of 16-bit data
+            0x23, // Second byte of 16-bit data
+            0x00, // Unused data
+            0x00, // Unused data
+        ];
+        let mut cpu = Cpu::new_from_vec(rom);
+        cpu.execute();
+
+        assert_eq!(cpu.read_pc(), 3); // size of instruction
+        assert_eq!(read_sp(cpu), 0x4123);
     }
 }

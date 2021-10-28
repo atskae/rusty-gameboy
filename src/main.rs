@@ -11,7 +11,7 @@ fn main() {
     let args = CommandLineArgs::new();
     debug!("Command line args: {:?}", args);
 
-    let mut cpu = Cpu::new(args.rom_path);
+    let mut cpu = Cpu::new_from_path(args.rom_path);
     debug!("Created a CPU object {}", cpu);
     cpu.start(args.subcommand);
 }
