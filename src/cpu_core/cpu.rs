@@ -206,13 +206,7 @@ impl Cpu {
 
     /// If cond is true, check condition of the flag (specified by y)
     /// to decide whether to jump or not
-    fn jr_d8(&mut self, cond: bool, y: u8) -> u16 {
-        debug!("Jump, cond={}, y={}", cond, y);
-        let pc_increment = 0;
-        if cond && !self.cc(y - 4) {
-            return pc_increment;
-        }
-
+    fn jr_d8(&mut self) -> u16 {
         let pc = self.read_pc() as usize; // points to the opcode
         let displacement: i8 = self.rom[pc + 1] as i8;
         debug!("displacement: {}", displacement);
@@ -227,7 +221,15 @@ impl Cpu {
         self.regs[RegIndex::PC].write(new_pc);
 
         self.cycle += 12;
-        pc_increment
+        0 // pc_increment
+    }
+
+    /// Conditional jump
+    fn jr_d8_cond(&mut self, y: u8) -> u16 {
+        if self.cc(y - 4) {
+            return self.jr_d8();
+        }
+        0 // pc_increment
     }
 
     /// Decodes then executes the instruction pointed to by the program_counter
@@ -251,11 +253,11 @@ impl Cpu {
             0 => {
                 match z {
                     0 => match y {
-                        0 => 1,                    // NOP
-                        1 => self.ld_d16_sp(),     // Load immediate into SP
-                        2 => 2,                    // STOP
-                        3 => self.jr_d8(false, y), // Jump
-                        _ => self.jr_d8(true, y),  // Conditional jump
+                        0 => 1,                  // NOP
+                        1 => self.ld_d16_sp(),   // Load immediate into SP
+                        2 => 2,                  // STOP
+                        3 => self.jr_d8(),       // Jump
+                        _ => self.jr_d8_cond(y), // Conditional jump
                     },
                     1 => match q {
                         0 => self.ld_d16_rp(p),
