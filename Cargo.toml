@@ -13,3 +13,4 @@ log = "0.4"
 [dev-dependencies]
 cargo-check = "0.2"
 test-env-log = "0.2"
+test-case = "1.2" # parameterized tests

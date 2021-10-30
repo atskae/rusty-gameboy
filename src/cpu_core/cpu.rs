@@ -9,7 +9,7 @@ use crate::cli::Subcommand;
 use crate::cpu_core::register::{Register, RegisterOperation};
 
 // Indices into Cpu::registers vector
-#[derive(Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 #[repr(u8)]
 enum RegIndex {
     /// Accumulator and Flag
@@ -283,6 +283,7 @@ impl Cpu {
 #[cfg(test)]
 mod tests {
     use super::*; // use the same imports as outer scope
+    use test_case::test_case; // parameterized tests
 
     // Used until cpu.read_sp() is actually used somewhere
     // outside the test environment...
@@ -318,12 +319,14 @@ mod tests {
         check_regs_are_zero(&cpu);
     }
 
+    // This opcode specifically loads into SP always.
+    // test_ld_d16_rp on the other hand, can load into any register
     #[test]
-    fn test_ld_d16_sp_execute() {
+    fn test_ld_d16_sp() {
         let rom: Vec<u8> = vec![
-            0xFF, 0xFF, 0x31, // 0x31 = Opcode
-            0x41, // First byte of 16-bit data
-            0x23, // Second byte of 16-bit data
+            0xFF, 0xFF, 0x08, // 0x08 = Opcode
+            0xFF, // First byte of 16-bit data
+            0xA7, // Second byte of 16-bit data
             0xFF, 0xFF,
         ];
         let mut cpu = Cpu::new_from_vec(rom);
@@ -332,7 +335,38 @@ mod tests {
         cpu.execute();
 
         assert_eq!(cpu.read_pc(), start_pc + 3); // size of instruction
-        assert_eq!(read_sp(&cpu), 0x4123);
+        assert_eq!(read_sp(&cpu), 0xFFA7);
         check_regs_are_zero(&cpu);
+    }
+
+    #[test_case(0x01, RegIndex::BC; "bc register")]
+    #[test_case(0x11, RegIndex::DE; "de register")]
+    #[test_case(0x21, RegIndex::HL; "hl register")]
+    #[test_case(0x31, RegIndex::SP; "stack pointer")]
+    fn test_ld_d16_rp(opcode: u8, reg: RegIndex) {
+        let mut rom: Vec<u8> = vec![
+            0xFF, 0xFF, 0x00, 0x41, // First byte of 16-bit data
+            0x23, // Second byte of 16-bit data
+            0xFF, 0xFF,
+        ];
+        rom[2] = opcode;
+
+        let mut cpu = Cpu::new_from_vec(rom);
+        let start_pc = 2;
+        cpu.regs[RegIndex::PC].write(start_pc);
+        cpu.execute();
+
+        assert_eq!(cpu.read_pc(), start_pc + 3); // size of instruction
+        assert_eq!(cpu.regs[reg].read(), 0x4123);
+
+        // Check that other registers were not modified
+        let regs_to_check = [RegIndex::AF, RegIndex::BC, RegIndex::DE, RegIndex::HL];
+        for reg_to_check in regs_to_check.iter() {
+            // reg_to_check is a reference, so must de-reference
+            if reg == *reg_to_check {
+                continue;
+            }
+            assert_eq!(cpu.regs[*reg_to_check].read(), 0);
+        }
     }
 }
