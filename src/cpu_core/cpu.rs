@@ -183,20 +183,6 @@ impl Cpu {
             (such as Jump), the program counter increment is zero.
     */
 
-    /// Load a 16-bit value into the stack pointer
-    fn ld_d16_sp(&mut self) -> u16 {
-        let pc = self.read_pc() as usize; // points to the opcode
-        let mut imm16: u16 = self.rom[pc + 1] as u16;
-        imm16 <<= 8;
-        imm16 |= self.rom[pc + 2] as u16;
-
-        // Update stack pointer
-        self.regs[RegIndex::SP].write(imm16);
-
-        self.cycle += 12;
-        3
-    }
-
     // Loads a 16-bit value into a register
     fn ld_d16_rp(&mut self, index: u8) -> u16 {
         let pc = self.read_pc() as usize; // points to the opcode
@@ -210,6 +196,12 @@ impl Cpu {
         debug!("LD {:?}, {:#02x}", reg_index, imm16);
         self.cycle += 12;
         3
+    }
+
+    /// Load a 16-bit value into the stack pointer
+    fn ld_d16_sp(&mut self) -> u16 {
+        // 3 is the index into rp that corresponds to the SP register
+        self.ld_d16_rp(3)
     }
 
     /// If cond is true, check condition of the flag (specified by y)
@@ -294,15 +286,40 @@ mod tests {
 
     // Used until cpu.read_sp() is actually used somewhere
     // outside the test environment...
-    fn read_sp(cpu: Cpu) -> u16 {
+    fn read_sp(cpu: &Cpu) -> u16 {
         cpu.regs[RegIndex::SP].read()
     }
 
+    // Checks that AL, BC, DE, and HL are zero
+    fn check_regs_are_zero(cpu: &Cpu) {
+        assert_eq!(cpu.regs[RegIndex::AF].read(), 0);
+        assert_eq!(cpu.regs[RegIndex::BC].read(), 0);
+        assert_eq!(cpu.regs[RegIndex::DE].read(), 0);
+        assert_eq!(cpu.regs[RegIndex::HL].read(), 0);
+    }
+
+    /*
+        Test that execute() correctly decodes each instruction.
+        0xFF unused bytes; these are inserted to
+        test ROM reads at arbitrary PC values
+    */
+
     #[test]
-    /// Test that execute() correctly decodes
+    fn test_nop() {
+        // 0x00 = Opcode
+        let rom: Vec<u8> = vec![0x00, 0xFF, 0xFF, 0x00, 0xFF];
+
+        let mut cpu = Cpu::new_from_vec(rom);
+        let start_pc = 3;
+        cpu.regs[RegIndex::PC].write(start_pc);
+        cpu.execute();
+
+        assert_eq!(cpu.read_pc(), start_pc + 1); // size of instruction
+        check_regs_are_zero(&cpu);
+    }
+
+    #[test]
     fn test_ld_d16_sp_execute() {
-        // 0xFF unused bytes; these are inserted to
-        // test ROM reads at arbitrary PC values
         let rom: Vec<u8> = vec![
             0xFF, 0xFF, 0x31, // 0x31 = Opcode
             0x41, // First byte of 16-bit data
@@ -315,6 +332,7 @@ mod tests {
         cpu.execute();
 
         assert_eq!(cpu.read_pc(), start_pc + 3); // size of instruction
-        assert_eq!(read_sp(cpu), 0x4123);
+        assert_eq!(read_sp(&cpu), 0x4123);
+        check_regs_are_zero(&cpu);
     }
 }
