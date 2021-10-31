@@ -204,12 +204,18 @@ impl Cpu {
         self.ld_d16_rp(3)
     }
 
-    /// If cond is true, check condition of the flag (specified by y)
-    /// to decide whether to jump or not
     fn jr_d8(&mut self) -> u16 {
         let pc = self.read_pc() as usize; // points to the opcode
+        debug!(
+            "displacement as u8: {:#02x} = {}",
+            self.rom[pc + 1],
+            self.rom[pc + 1]
+        );
         let displacement: i8 = self.rom[pc + 1] as i8;
-        debug!("displacement: {}", displacement);
+        debug!(
+            "displacement as i8: {:#02x} = {}",
+            displacement, displacement
+        );
 
         let mut new_pc = pc as u16;
         debug!("pc={}, new_pc={}", pc, new_pc);
@@ -253,9 +259,12 @@ impl Cpu {
             0 => {
                 match z {
                     0 => match y {
-                        0 => 1,                  // NOP
-                        1 => self.ld_d16_sp(),   // Load immediate into SP
-                        2 => 2,                  // STOP
+                        0 => 1,                // NOP
+                        1 => self.ld_d16_sp(), // Load immediate into SP
+                        2 => {
+                            // STOP
+                            unimplemented!("STOP not implemented!");
+                        }
                         3 => self.jr_d8(),       // Jump
                         _ => self.jr_d8_cond(y), // Conditional jump
                     },
@@ -286,6 +295,7 @@ impl Cpu {
 mod tests {
     use super::*; // use the same imports as outer scope
     use test_case::test_case; // parameterized tests
+                              //use test_env_log::test;
 
     // Used until cpu.read_sp() is actually used somewhere
     // outside the test environment...
@@ -294,7 +304,7 @@ mod tests {
     }
 
     // Checks that AL, BC, DE, and HL are zero
-    fn check_regs_are_zero(cpu: &Cpu) {
+    fn check_scratch_regs_are_zero(cpu: &Cpu) {
         assert_eq!(cpu.regs[RegIndex::AF].read(), 0);
         assert_eq!(cpu.regs[RegIndex::BC].read(), 0);
         assert_eq!(cpu.regs[RegIndex::DE].read(), 0);
@@ -318,7 +328,7 @@ mod tests {
         cpu.execute();
 
         assert_eq!(cpu.read_pc(), start_pc + 1); // size of instruction
-        check_regs_are_zero(&cpu);
+        check_scratch_regs_are_zero(&cpu);
     }
 
     // This opcode specifically loads into SP always.
@@ -338,13 +348,14 @@ mod tests {
 
         assert_eq!(cpu.read_pc(), start_pc + 3); // size of instruction
         assert_eq!(read_sp(&cpu), 0xFFA7);
-        check_regs_are_zero(&cpu);
+        check_scratch_regs_are_zero(&cpu);
     }
 
     #[test_case(0x01, RegIndex::BC; "bc register")]
     #[test_case(0x11, RegIndex::DE; "de register")]
     #[test_case(0x21, RegIndex::HL; "hl register")]
     #[test_case(0x31, RegIndex::SP; "stack pointer")]
+    #[test_env_log::test]
     fn test_ld_d16_rp(opcode: u8, reg: RegIndex) {
         let mut rom: Vec<u8> = vec![
             0xFF, 0xFF, 0x00, 0x41, // First byte of 16-bit data
@@ -370,5 +381,36 @@ mod tests {
             }
             assert_eq!(cpu.regs[*reg_to_check].read(), 0);
         }
+    }
+
+    #[test]
+    fn test_jr_d8() {
+        // Opcode = 0x18
+        let rom: Vec<u8> = vec![0xFF, 0x18, 0x05, 0xFF, 0xFF, 0xFF, 0xFF];
+
+        let mut cpu = Cpu::new_from_vec(rom);
+        let start_pc = 1;
+        cpu.regs[RegIndex::PC].write(start_pc);
+        cpu.execute();
+
+        assert_eq!(cpu.read_pc(), start_pc + 0x05);
+        check_scratch_regs_are_zero(&cpu);
+    }
+
+    // Test jump with a negative offset
+    #[test_env_log::test]
+    fn test_jr_d8_negative() {
+        // Opcode = 0x18
+        // 0xF8 = -4
+        let rom: Vec<u8> = vec![0xFF, 0x18, 0x05, 0xFF, 0xFF, 0x18, 0xFC];
+
+        let mut cpu = Cpu::new_from_vec(rom);
+        let start_pc = 5;
+        cpu.regs[RegIndex::PC].write(start_pc);
+        debug!("pc: {}", cpu.read_pc());
+        cpu.execute();
+
+        assert_eq!(cpu.read_pc(), start_pc - 0x04);
+        check_scratch_regs_are_zero(&cpu);
     }
 }
