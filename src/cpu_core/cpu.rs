@@ -401,7 +401,8 @@ mod tests {
     #[test_env_log::test]
     fn test_jr_d8_negative() {
         // Opcode = 0x18
-        // 0xF8 = -4
+        // 0xFC= -4
+        // Signed integers, 2s complement
         let rom: Vec<u8> = vec![0xFF, 0x18, 0x05, 0xFF, 0xFF, 0x18, 0xFC];
 
         let mut cpu = Cpu::new_from_vec(rom);
