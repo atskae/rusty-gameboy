@@ -378,37 +378,6 @@ mod tests {
         check_scratch_regs_are_zero(&cpu);
     }
 
-    #[test_case(0x01, RegIndex::BC; "bc register")]
-    #[test_case(0x11, RegIndex::DE; "de register")]
-    #[test_case(0x21, RegIndex::HL; "hl register")]
-    #[test_case(0x31, RegIndex::SP; "stack pointer")]
-    fn test_ld_d16_rp(opcode: u8, reg: RegIndex) {
-        let mut rom: Vec<u8> = vec![
-            0xFF, 0xFF, 0x00, 0x41, // First byte of 16-bit data
-            0x23, // Second byte of 16-bit data
-            0xFF, 0xFF,
-        ];
-        rom[2] = opcode;
-
-        let mut cpu = Cpu::new_from_vec(rom);
-        let start_pc = 2;
-        cpu.regs[RegIndex::PC].write(start_pc);
-        cpu.execute();
-
-        assert_eq!(cpu.read_pc(), start_pc + 3); // size of instruction
-        assert_eq!(cpu.regs[reg].read(), 0x4123);
-
-        // Check that other registers were not modified
-        let regs_to_check = [RegIndex::AF, RegIndex::BC, RegIndex::DE, RegIndex::HL];
-        for reg_to_check in regs_to_check.iter() {
-            // reg_to_check is a reference, so must de-reference
-            if reg == *reg_to_check {
-                continue;
-            }
-            assert_eq!(cpu.regs[*reg_to_check].read(), 0);
-        }
-    }
-
     #[test]
     fn test_jr_d8() {
         // Opcode = 0x18
@@ -477,4 +446,35 @@ mod tests {
         check_scratch_regs_are_zero(&cpu);
         assert_eq!(read_flag_reg(&cpu), flag_reg_val);
     }
-}
+
+    #[test_case(0x01, RegIndex::BC; "bc register")]
+    #[test_case(0x11, RegIndex::DE; "de register")]
+    #[test_case(0x21, RegIndex::HL; "hl register")]
+    #[test_case(0x31, RegIndex::SP; "stack pointer")]
+    fn test_ld_d16_rp(opcode: u8, reg: RegIndex) {
+        let mut rom: Vec<u8> = vec![
+            0xFF, 0xFF, 0x00, 0x41, // First byte of 16-bit data
+            0x23, // Second byte of 16-bit data
+            0xFF, 0xFF,
+        ];
+        rom[2] = opcode;
+
+        let mut cpu = Cpu::new_from_vec(rom);
+        let start_pc = 2;
+        cpu.regs[RegIndex::PC].write(start_pc);
+        cpu.execute();
+
+        assert_eq!(cpu.read_pc(), start_pc + 3); // size of instruction
+        assert_eq!(cpu.regs[reg].read(), 0x4123);
+
+        // Check that other registers were not modified
+        let regs_to_check = [RegIndex::AF, RegIndex::BC, RegIndex::DE, RegIndex::HL];
+        for reg_to_check in regs_to_check.iter() {
+            // reg_to_check is a reference, so must de-reference
+            if reg == *reg_to_check {
+                continue;
+            }
+            assert_eq!(cpu.regs[*reg_to_check].read(), 0);
+        }
+    }
+} // tests module ; end
