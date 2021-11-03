@@ -138,6 +138,19 @@ impl Cpu {
         self.regs[RegIndex::PC].read()
     }
 
+    fn read_zero_flag(&self) -> u8 {
+        let flag_reg_val: u8 = self.regs[RegIndex::AF].read_lower();
+        debug!("Read flag register: {:#010b}", flag_reg_val);
+        let zero_flag_val: u8 = (flag_reg_val & 0b1000_0000) >> 7;
+        debug!("Retrieved zero flag: {}", zero_flag_val);
+        zero_flag_val
+    }
+
+    fn read_carry_flag(&self) -> u8 {
+        let flag_reg_val: u8 = self.regs[RegIndex::AF].read_lower();
+        (flag_reg_val & 0b0001_0000) >> 4
+    }
+
     // Uncomment when actually used
     //fn read_sp(&self) -> u16 {
     //    self.regs[RegIndex::SP].read()
@@ -151,12 +164,12 @@ impl Cpu {
 
     // cc[index]
     fn cc(&self, index: u8) -> bool {
-        let flag_reg_val: u8 = self.regs[RegIndex::AF].read_lower();
+        debug!("Condition table index={}", index);
         let condition: bool = match index {
-            0 => (flag_reg_val & 0b1000_0000) >> 7 == 0, // NZ
-            1 => (flag_reg_val & 0b1000_0000) >> 7 == 1, // Z
-            2 => (flag_reg_val & 0b0001_0000) >> 4 == 0, // NC
-            3 => (flag_reg_val & 0b0001_0000) >> 4 == 1, // C
+            0 => self.read_zero_flag() == 0,  // NZ
+            1 => self.read_zero_flag() == 1,  // Z
+            2 => self.read_carry_flag() == 0, // NC
+            3 => self.read_carry_flag() == 1, // C
             _ => {
                 warn!("Condition code index={}, case not covered!", index);
                 false
@@ -204,6 +217,7 @@ impl Cpu {
         self.ld_d16_rp(3)
     }
 
+    /// Jump using an 8-bit offset
     fn jr_d8(&mut self) -> u16 {
         let pc = self.read_pc() as usize; // points to the opcode
         debug!(
@@ -230,11 +244,17 @@ impl Cpu {
         0 // pc_increment
     }
 
-    /// Conditional jump
+    /// Conditional jump using an 8-bit offset
     fn jr_d8_cond(&mut self, y: u8) -> u16 {
+        if y > 7 {
+            warn!("y={} is too large.", y);
+            return 0;
+        }
+
         if self.cc(y - 4) {
             return self.jr_d8();
         }
+        info!("Jump condition not satisfied.");
         0 // pc_increment
     }
 
@@ -295,7 +315,6 @@ impl Cpu {
 mod tests {
     use super::*; // use the same imports as outer scope
     use test_case::test_case; // parameterized tests
-                              //use test_env_log::test;
 
     // Used until cpu.read_sp() is actually used somewhere
     // outside the test environment...
@@ -303,12 +322,20 @@ mod tests {
         cpu.regs[RegIndex::SP].read()
     }
 
-    // Checks that AL, BC, DE, and HL are zero
+    // Checks that A (of AF), BC, DE, and HL are zero
+    // The Flag register (F in AF) should be checked separately
     fn check_scratch_regs_are_zero(cpu: &Cpu) {
-        assert_eq!(cpu.regs[RegIndex::AF].read(), 0);
+        // Check the A (accumulator) register only
+        // since the Flag register is not really a scratch register
+        assert_eq!(cpu.regs[RegIndex::AF].read_upper(), 0);
+
         assert_eq!(cpu.regs[RegIndex::BC].read(), 0);
         assert_eq!(cpu.regs[RegIndex::DE].read(), 0);
         assert_eq!(cpu.regs[RegIndex::HL].read(), 0);
+    }
+
+    fn read_flag_reg(cpu: &Cpu) -> u8 {
+        cpu.regs[RegIndex::AF].read_lower()
     }
 
     /*
@@ -355,7 +382,6 @@ mod tests {
     #[test_case(0x11, RegIndex::DE; "de register")]
     #[test_case(0x21, RegIndex::HL; "hl register")]
     #[test_case(0x31, RegIndex::SP; "stack pointer")]
-    #[test_env_log::test]
     fn test_ld_d16_rp(opcode: u8, reg: RegIndex) {
         let mut rom: Vec<u8> = vec![
             0xFF, 0xFF, 0x00, 0x41, // First byte of 16-bit data
@@ -413,5 +439,42 @@ mod tests {
 
         assert_eq!(cpu.read_pc(), start_pc - 0x04);
         check_scratch_regs_are_zero(&cpu);
+        assert_eq!(read_flag_reg(&cpu), 0);
+    }
+
+    /*
+        Opcode:
+        0x20: Jump if the zero flag is NOT set
+        0x28: Jump if the zero flag is set
+        0x30: Jump if the carry flag is NOT set
+        0x38: Jump if the carry flag is set
+    */
+
+    #[test_case(0x020, 0b0111_1111, 5, 1; "nz jump")] // zero flag is bit 7
+    #[test_case(0x020, 0b1000_0000, 5, 5; "no nz jump")]
+    #[test_case(0x028, 0b1000_0000, 5, 1; "z jump")]
+    #[test_case(0x028, 0b0111_1111, 5, 5; "no z jump")]
+    #[test_case(0x030, 0b1110_1111, 5, 1; "nc jump")] // carry flag is bit 4
+    #[test_case(0x030, 0b0001_0000, 5, 5; "no nc jump")]
+    #[test_case(0x038, 0b0001_0000, 5, 1; "c jump")]
+    #[test_case(0x038, 0b1110_1111, 5, 5; "no c jump")]
+    fn test_jr_d8_cond(opcode: u8, flag_reg_val: u8, start_pc: u16, expected_pc: u16) {
+        // The flag and condition to expect is written in the opcode
+        // 0xFC= -4 ; signed integers, 2s complement
+        let mut rom: Vec<u8> = vec![0xFF, 0x18, 0x05, 0xFF, 0xFF, 0x00, 0xFC];
+        rom[start_pc as usize] = opcode; // Cpu will read the instruction from here
+        let mut cpu = Cpu::new_from_vec(rom);
+        cpu.regs[RegIndex::PC].write(start_pc as u16);
+        debug!("pc: {}", cpu.read_pc());
+
+        // Set the condition flag values
+        cpu.regs[RegIndex::AF].write_lower(flag_reg_val);
+        debug!("flag reg: {:#010b}", cpu.regs[RegIndex::AF].read_lower());
+        cpu.execute();
+
+        // Check if the jump occurred or not, based on the condition
+        assert_eq!(cpu.read_pc(), expected_pc);
+        check_scratch_regs_are_zero(&cpu);
+        assert_eq!(read_flag_reg(&cpu), flag_reg_val);
     }
 }

@@ -75,7 +75,6 @@ impl RegisterOperation for Register {
 #[cfg(test)]
 mod tests {
     use super::*; // use the same imports as outer scope
-    use log::debug;
     use test_env_log::test;
 
     #[test]
