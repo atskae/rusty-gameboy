@@ -9,7 +9,7 @@ Notes on how the GameBoy works. [Old README of resources](https://github.com/ats
 * [Decoding Z80 opcodes (for the GameBoy)](https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html)
 * [CPU Instruction Set (by operation type)](http://bgb.bircd.org/pandocs.htm#cpuinstructionset)
     * Organizes by load, arithmetic/logical, rotate/shift, etc.
-
+* [GameBoy CPU Manual](http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf)
 
 Refresher from [The Ultimate Game Boy Talk](https://www.youtube.com/watch?v=HyzD8pNlpwI):
 

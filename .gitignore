@@ -5,3 +5,5 @@ Cargo.lock
 
 # rustfmt files
 **/*.rs.bk
+
+.DS_Store
