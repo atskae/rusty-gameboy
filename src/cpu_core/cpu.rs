@@ -1,4 +1,4 @@
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use std::fmt;
 use std::format;
 use std::fs;
@@ -162,6 +162,11 @@ impl Cpu {
             https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
     */
 
+    fn invalid_opcode(&self, opcode: u8) -> u16 {
+        error!("Invalid opcode! {:#02x}", opcode);
+        0
+    }
+
     // cc[index]
     fn cc(&self, index: u8) -> bool {
         debug!("Condition table index={}", index);
@@ -258,6 +263,16 @@ impl Cpu {
         0 // pc_increment
     }
 
+    /// Add a 16-bit value from a register to HL
+    fn add_hl_rp(&mut self, p: u8) -> u16 {
+        let reg_val = self.regs[self.rp(p)].read();
+        let overflow_check = self.regs[RegIndex::HL].increment(reg_val);
+        if overflow_check == None {
+            unimplemented!("Setting the zero flag is not implemented!");
+        }
+        1
+    }
+
     /// Decodes then executes the instruction pointed to by the program_counter
     // Fields in the GameBoy manual label fields as single characters
     #[allow(clippy::many_single_char_names)]
@@ -285,12 +300,14 @@ impl Cpu {
                             // STOP
                             unimplemented!("STOP not implemented!");
                         }
-                        3 => self.jr_d8(),       // Jump
-                        _ => self.jr_d8_cond(y), // Conditional jump
+                        3 => self.jr_d8(),           // Jump
+                        4..=7 => self.jr_d8_cond(y), // Conditional jump
+                        _ => self.invalid_opcode(opcode_byte),
                     },
                     1 => match q {
                         0 => self.ld_d16_rp(p),
-                        _ => unimplemented!("Not implemented this case of q!"),
+                        1 => self.add_hl_rp(p),
+                        _ => self.invalid_opcode(opcode_byte),
                     },
                     _ => unimplemented!("Not implemented this case of z!"),
                 }
