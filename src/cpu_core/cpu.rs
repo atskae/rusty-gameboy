@@ -129,7 +129,7 @@ impl Cpu {
     // Update register
     fn increment_reg(&mut self, reg_index: RegIndex, delta: u16) {
         // Set the carry flag since the operation overflowed
-        if self.regs[reg_index].increment(delta) == None {
+        if self.regs[reg_index].increment(delta).carry {
             unimplemented!("Setting carry flag on overflow is not implemented!");
         }
     }
@@ -266,9 +266,9 @@ impl Cpu {
     /// Add a 16-bit value from a register to HL
     fn add_hl_rp(&mut self, p: u8) -> u16 {
         let reg_val = self.regs[self.rp(p)].read();
-        let overflow_check = self.regs[RegIndex::HL].increment(reg_val);
-        if overflow_check == None {
-            unimplemented!("Setting the zero flag is not implemented!");
+        let carry_state = self.regs[RegIndex::HL].increment(reg_val);
+        if carry_state.carry {
+            unimplemented!("Setting the carry flag is not implemented!");
         }
         1
     }
