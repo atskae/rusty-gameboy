@@ -1,3 +1,5 @@
+use log::{debug, warn};
+
 pub trait RegisterOperation {
     fn read(&self) -> u16;
     fn read_upper(&self) -> u8;
@@ -6,6 +8,14 @@ pub trait RegisterOperation {
     fn write(&mut self, value: u16);
     fn write_upper(&mut self, value: u8);
     fn write_lower(&mut self, value: u8);
+
+    fn set_bit(&mut self, bit_index: u8);
+    fn set_bit_upper(&mut self, bit_index: u8);
+    fn set_bit_lower(&mut self, bit_index: u8);
+
+    fn clear_bit(&mut self, bit_index: u8);
+    fn clear_bit_upper(&mut self, bit_index: u8);
+    fn clear_bit_lower(&mut self, bit_index: u8);
 
     // Increment or decrement by a delta value
     fn increment(&mut self, delta: u16) -> Option<u16>;
@@ -56,6 +66,66 @@ impl RegisterOperation for Register {
         self.value &= 0b1111_1111_0000_0000;
         // Write the bits
         self.value |= value as u16;
+    }
+
+    fn set_bit(&mut self, bit_index: u8) {
+        if bit_index > 15 {
+            warn!("Bit index {} is out of range!", bit_index);
+            return;
+        }
+        debug!("Before set_bit: {:b}", self.value);
+        let mask = 1 << bit_index;
+        self.value |= mask;
+        debug!("After set_bit: {:b}", self.value);
+    }
+
+    /// Set a bit in the upper register (of a 16-bit register)
+    /// by passing in a logical bit_index (range 0-7)
+    fn set_bit_upper(&mut self, logical_bit_index: u8) {
+        if logical_bit_index > 7 {
+            warn!("Bit index {} is out of range!", logical_bit_index);
+            return;
+        }
+        let bit_index = logical_bit_index + 8;
+        self.set_bit(bit_index);
+    }
+
+    fn set_bit_lower(&mut self, bit_index: u8) {
+        if bit_index > 7 {
+            warn!("Bit index {} is out of range!", bit_index);
+            return;
+        }
+        self.set_bit(bit_index);
+    }
+
+    fn clear_bit(&mut self, bit_index: u8) {
+        if bit_index > 15 {
+            warn!("Bit index {} is out of range!", bit_index);
+            return;
+        }
+        debug!("Before clear_bit: {:b}", self.value);
+        let mask = 1 << bit_index;
+        self.value &= !mask;
+        debug!("After clear_bit: {:b}", self.value);
+    }
+
+    /// Clear a bit in the upper register (of a 16-bit register)
+    /// by passing in a logical bit_index (range 0-7)
+    fn clear_bit_upper(&mut self, logical_bit_index: u8) {
+        if logical_bit_index > 7 {
+            warn!("Bit index {} is out of range!", logical_bit_index);
+            return;
+        }
+        let bit_index = logical_bit_index + 8;
+        self.clear_bit(bit_index);
+    }
+
+    fn clear_bit_lower(&mut self, bit_index: u8) {
+        if bit_index > 7 {
+            warn!("Bit index {} is out of range!", bit_index);
+            return;
+        }
+        self.clear_bit(bit_index);
     }
 
     // If overflow occurs, return None
