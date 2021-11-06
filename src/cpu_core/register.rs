@@ -90,6 +90,8 @@ impl RegisterOperation for Register {
         self.set_bit(bit_index);
     }
 
+    /// Same as set_bit() but with a stricter range
+    /// within the lower 8-bit register
     fn set_bit_lower(&mut self, bit_index: u8) {
         if bit_index > 7 {
             warn!("Bit index {} is out of range!", bit_index);
@@ -204,6 +206,111 @@ mod tests {
         reg.write_lower(lower);
         assert_eq!(reg.read_lower(), lower);
         assert_eq!(reg.read(), 0b0011_0010_1111_0101);
+    }
+
+    #[test]
+    fn test_set_bit() {
+        let val = 0b0000_0010_0100_1111;
+        let mut reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+
+        // Test out of range bit index
+        reg.set_bit(27);
+        // The value should be unchanged
+        assert_eq!(reg.read(), val);
+
+        // Test a valid bit index
+        reg.set_bit(13);
+        assert_eq!(reg.read(), 0b0010_0010_0100_1111);
+    }
+
+    #[test]
+    fn test_set_bit_upper() {
+        let val = 0b0000_0010_0100_1111;
+        let mut reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+
+        // Test out of range bit index
+        reg.set_bit_upper(9); // bit index 0-7 are only allowed
+                              // The value should be unchanged
+        assert_eq!(reg.read(), val);
+
+        // Test a valid bit index
+        // A logical index of an 8-bit register is passed in,
+        // which then gets mapped to the actual bit index
+        // in the 16-bit register
+        reg.set_bit_upper(2);
+        assert_eq!(reg.read(), 0b0000_0110_0100_1111);
+    }
+
+    #[test]
+    fn test_set_bit_lower() {
+        let val = 0b0000_0010_0100_1111;
+        let mut reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+
+        // Test out of range bit index
+        reg.set_bit_lower(14); // bit index 0-7 are only allowed
+                               // The value should be unchanged
+        assert_eq!(reg.read(), val);
+
+        // Test a valid bit index
+        reg.set_bit_lower(5);
+        assert_eq!(reg.read(), 0b0000_0010_0110_1111);
+    }
+
+    #[test]
+    fn test_clear_bit() {
+        let val = 0b1011_0010_0100_1111;
+        let mut reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+
+        // Test out of range bit index
+        reg.clear_bit(38);
+        // The value should be unchanged
+        assert_eq!(reg.read(), val);
+
+        // Test a valid bit index
+        reg.clear_bit(15);
+        assert_eq!(reg.read(), 0b0011_0010_0100_1111);
+    }
+
+    #[test]
+    fn clear_bit_upper() {
+        let val = 0b1111_0010_0100_1111;
+        let mut reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+
+        // Test out of range bit index
+        reg.clear_bit_upper(9); // bit index 0-7 are only allowed
+                                // The value should be unchanged
+        assert_eq!(reg.read(), val);
+
+        // Test a valid bit index
+        // A logical index of an 8-bit register is passed in,
+        // which then gets mapped to the actual bit index
+        // in the 16-bit register
+        reg.clear_bit_upper(1);
+        assert_eq!(reg.read(), 0b1111_0000_0100_1111);
+    }
+
+    #[test]
+    fn clear_bit_lower(&mut self, bit_index: u8) {
+        let val = 0b1111_0010_0100_1111;
+        let mut reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+
+        // Test out of range bit index
+        reg.clear_bit_lower(14); // bit index 0-7 are only allowed
+                                 // The value should be unchanged
+        assert_eq!(reg.read(), val);
+
+        // Test a valid bit index
+        // A logical index of an 8-bit register is passed in,
+        // which then gets mapped to the actual bit index
+        // in the 16-bit register
+        reg.clear_bit_lower(3);
+        assert_eq!(reg.read(), 0b1111_0010_0100_0111);
     }
 
     #[test]
