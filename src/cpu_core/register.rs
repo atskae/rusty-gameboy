@@ -1,7 +1,7 @@
 use log::{debug, warn};
 
 /// The return value of a arithmetic operatiomn
-// which indicates whether a carry or a half-carry occurred
+/// which indicates whether a carry or a half-carry occurred
 pub struct CarryState {
     pub carry: bool,
     pub half_carry: bool,
