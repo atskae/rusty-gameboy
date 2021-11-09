@@ -151,13 +151,19 @@ impl RegisterOperation for Register {
         self.clear_bit(bit_index);
     }
 
+    /// Checks if there is carry between bit 11 to 12
+    /// (since we are dealing with 16-bit values)
     fn is_half_carry(&self, delta: u16) -> bool {
         // Extract the upper byte
         let a: u8 = self.read_upper();
-        let b: u8 = _read_lower(delta);
+        let b: u8 = _read_upper(delta);
 
         // Check if adding the lower 4-bits (nibble) produces a carry
-        (a & 0b000_1111) + (b & 0b0000_1111) == (0b0001_0000)
+        let a_masked = a & 0b0000_1111;
+        let b_masked = b & 0b0000_1111;
+        debug!("a_masked={:b}, b_masked={:b}", a_masked, b_masked);
+        debug!("a_masked + b_masked = {:b}", a_masked + b_masked);
+        ((a_masked + b_masked) & 0b0001_0000) == (0b0001_0000)
     }
 
     // If overflow occurs, return None
@@ -175,7 +181,7 @@ impl RegisterOperation for Register {
         self.value = self.value.wrapping_sub(delta);
         CarryState {
             carry: overflow_check == None, // might not apply to sub...
-            half_carry: self.is_half_carry(delta),
+            half_carry: false,             // carries can't occur on subtract?
         }
     }
 }
@@ -347,6 +353,16 @@ mod tests {
         // in the 16-bit register
         reg.clear_bit_lower(3);
         assert_eq!(reg.read(), 0b1111_0010_0100_0111);
+    }
+
+    #[test]
+    fn test_is_half_carry() {
+        let val = 0b0000_1111_1111_1111;
+        let delta = 0b0000_1111_1111_1111;
+        let reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+
+        assert!(reg.is_half_carry(delta));
     }
 
     #[test]
