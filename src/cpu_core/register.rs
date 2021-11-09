@@ -13,6 +13,7 @@ pub struct CarryState {
 
 fn _read_upper(value: u16) -> u8 {
     let masked = value & 0b1111_1111_0000_0000;
+    debug!("_read_upper: {}={:#b} -> {:#b}", value, value, masked);
     (masked >> 8) as u8
 }
 
@@ -63,6 +64,7 @@ impl RegisterOperation for Register {
 
     /// Return the most-significant byte in the register
     fn read_upper(&self) -> u8 {
+        debug!("read_upper {}", self.value);
         _read_upper(self.value)
     }
 
@@ -157,22 +159,29 @@ impl RegisterOperation for Register {
         // Extract the upper byte
         let a: u8 = self.read_upper();
         let b: u8 = _read_upper(delta);
+        debug!("Extracing upper byte: a={:#b}, b={:#b}", a, b);
 
         // Check if adding the lower 4-bits (nibble) produces a carry
         let a_masked = a & 0b0000_1111;
         let b_masked = b & 0b0000_1111;
-        debug!("a_masked={:b}, b_masked={:b}", a_masked, b_masked);
-        debug!("a_masked + b_masked = {:b}", a_masked + b_masked);
+        debug!(
+            "a_masked={:#b}={}, b_masked={:#b}={}",
+            a_masked, a_masked, b_masked, b_masked
+        );
+        debug!("a_masked + b_masked = {:#b}", a_masked + b_masked);
         ((a_masked + b_masked) & 0b0001_0000) == (0b0001_0000)
     }
 
     // If overflow occurs, return None
     fn increment(&mut self, delta: u16) -> CarryState {
+        debug!("Calculating: {}+{}", self.value, delta);
+        debug!("Calculating: {:#b}+{:#b}", self.value, delta);
         let overflow_check = self.value.checked_add(delta);
+        let is_half_carry = self.is_half_carry(delta);
         self.value = self.value.wrapping_add(delta);
         CarryState {
             carry: overflow_check == None,
-            half_carry: self.is_half_carry(delta),
+            half_carry: is_half_carry,
         }
     }
 
@@ -363,7 +372,7 @@ mod tests {
         assert_eq!(reg.read(), val);
         assert!(reg.is_half_carry(delta));
         // Test when a half-carry does not occur
-        assert!(reg.is_half_carry(0) == false);
+        assert_eq!(reg.is_half_carry(0), false);
     }
 
     #[test]
@@ -373,9 +382,11 @@ mod tests {
         assert_eq!(reg.read(), val);
 
         let delta = 432;
-        reg.increment(delta);
+        let carry_state = reg.increment(delta);
 
         assert_eq!(reg.read(), val + delta);
+        assert_eq!(carry_state.carry, false);
+        assert_eq!(carry_state.half_carry, false);
     }
 
     #[test]
@@ -388,6 +399,7 @@ mod tests {
         let carry_state = reg.increment(delta);
 
         assert_eq!(carry_state.carry, true);
+        assert_eq!(carry_state.half_carry, true);
         // wrapping_add() is equivalent mod u16::max
         // Need to compute in u32 as the temporary result cannot fit in u16
         let expected: u16 = ((val as u32) + (delta as u32) % (u16::MAX as u32 + 1)) as u16;
