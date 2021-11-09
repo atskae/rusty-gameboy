@@ -357,12 +357,13 @@ mod tests {
 
     #[test]
     fn test_is_half_carry() {
-        let val = 0b0000_1111_1111_1111;
+        let val = 0b0001_1111_1111_1111;
         let delta = 0b0000_1111_1111_1111;
         let reg = Register { value: val };
         assert_eq!(reg.read(), val);
-
         assert!(reg.is_half_carry(delta));
+        // Test when a half-carry does not occur
+        assert!(reg.is_half_carry(0) == false);
     }
 
     #[test]
