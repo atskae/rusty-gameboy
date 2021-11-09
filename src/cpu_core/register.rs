@@ -3,6 +3,7 @@ use log::{debug, warn};
 /// The return value of a arithmetic operatiomn
 /// which indicates whether a carry or a half-carry occurred
 pub struct CarryState {
+    pub overflow: bool, // includes underflow
     pub carry: bool,
     pub half_carry: bool,
 }
@@ -180,6 +181,7 @@ impl RegisterOperation for Register {
         let is_half_carry = self.is_half_carry(delta);
         self.value = self.value.wrapping_add(delta);
         CarryState {
+            overflow: overflow_check == None,
             carry: overflow_check == None,
             half_carry: is_half_carry,
         }
@@ -189,8 +191,9 @@ impl RegisterOperation for Register {
         let overflow_check = self.value.checked_sub(delta);
         self.value = self.value.wrapping_sub(delta);
         CarryState {
-            carry: overflow_check == None, // might not apply to sub...
-            half_carry: false,             // carries can't occur on subtract?
+            overflow: overflow_check == None,
+            carry: false,      // might not apply to sub...
+            half_carry: false, // carries can't occur on subtract?
         }
     }
 }
@@ -385,6 +388,7 @@ mod tests {
         let carry_state = reg.increment(delta);
 
         assert_eq!(reg.read(), val + delta);
+        assert_eq!(carry_state.overflow, false);
         assert_eq!(carry_state.carry, false);
         assert_eq!(carry_state.half_carry, false);
     }
@@ -398,6 +402,7 @@ mod tests {
         let delta = 2000;
         let carry_state = reg.increment(delta);
 
+        assert_eq!(carry_state.overflow, true);
         assert_eq!(carry_state.carry, true);
         assert_eq!(carry_state.half_carry, true);
         // wrapping_add() is equivalent mod u16::max
@@ -415,7 +420,9 @@ mod tests {
         let delta = 432;
         let carry_state = reg.increment(delta);
 
+        assert_eq!(carry_state.overflow, true);
         assert_eq!(carry_state.carry, true);
+        assert_eq!(carry_state.half_carry, true);
         let expected: u16 = ((val as u32) + (delta as u32) % (u16::MAX as u32 + 1)) as u16;
         assert_eq!(reg.read(), expected);
     }
@@ -427,9 +434,12 @@ mod tests {
         assert_eq!(reg.read(), val);
 
         let delta = 432;
-        reg.decrement(delta);
+        let carry_state = reg.decrement(delta);
 
         assert_eq!(reg.read(), val - delta);
+        assert_eq!(carry_state.overflow, false);
+        assert_eq!(carry_state.carry, false);
+        assert_eq!(carry_state.half_carry, false);
     }
 
     #[test]
@@ -440,7 +450,9 @@ mod tests {
         let delta = 432;
         let carry_state = reg.decrement(delta);
 
-        assert_eq!(carry_state.carry, true);
+        assert_eq!(carry_state.overflow, true); // "underflow"
+        assert_eq!(carry_state.carry, false);
+        assert_eq!(carry_state.half_carry, false);
         assert_eq!(reg.read(), u16::MAX - delta + 1);
     }
 
@@ -454,7 +466,9 @@ mod tests {
         assert!(delta > val);
         let carry_state = reg.decrement(delta);
 
-        assert_eq!(carry_state.carry, true);
+        assert_eq!(carry_state.overflow, true);
+        assert_eq!(carry_state.carry, false);
+        assert_eq!(carry_state.half_carry, false);
         let expected = u16::MAX - (delta - val) + 1;
         assert_eq!(reg.read(), expected);
     }
