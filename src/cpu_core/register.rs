@@ -157,20 +157,16 @@ impl RegisterOperation for Register {
     /// Checks if there is carry between bit 11 to 12
     /// (since we are dealing with 16-bit values)
     fn is_half_carry(&self, delta: u16) -> bool {
-        // Extract the upper byte
-        let a: u8 = self.read_upper();
-        let b: u8 = _read_upper(delta);
-        debug!("Extracing upper byte: a={:#b}, b={:#b}", a, b);
-
-        // Check if adding the lower 4-bits (nibble) produces a carry
-        let a_masked = a & 0b0000_1111;
-        let b_masked = b & 0b0000_1111;
+        let mask: u16 = 0b0000_1111_1111_1111;
+        let a_masked: u16 = self.value & mask;
+        let b_masked: u16 = delta & mask;
         debug!(
             "a_masked={:#b}={}, b_masked={:#b}={}",
             a_masked, a_masked, b_masked, b_masked
         );
         debug!("a_masked + b_masked = {:#b}", a_masked + b_masked);
-        ((a_masked + b_masked) & 0b0001_0000) == (0b0001_0000)
+        let carry_mask: u16 = 0b0001_0000_0000_0000;
+        ((a_masked + b_masked) & carry_mask) == (carry_mask)
     }
 
     // If overflow occurs, return None
@@ -374,8 +370,20 @@ mod tests {
         let reg = Register { value: val };
         assert_eq!(reg.read(), val);
         assert!(reg.is_half_carry(delta));
-        // Test when a half-carry does not occur
+
+        // Test when a half-carry does not occur (adding zero)
         assert_eq!(reg.is_half_carry(0), false);
+    }
+
+    /// Test that carries that are propagated to the 12th bit
+    /// also set the half-carry flag
+    #[test]
+    fn test_is_half_carry_propagated() {
+        let val = 0b0000_1111_1111_1111;
+        let delta = 0b0000_0000_0000_1010;
+        let reg = Register { value: val };
+        assert_eq!(reg.read(), val);
+        assert!(reg.is_half_carry(delta));
     }
 
     #[test]

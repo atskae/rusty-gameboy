@@ -40,6 +40,17 @@ impl IndexMut<RegIndex> for Vec<Register> {
     }
 }
 
+/// Enum that presents the bit position of the
+/// conditional flag in the Flag register
+#[derive(Clone, Copy, Debug)]
+#[repr(u8)]
+enum FlagRegister {
+    //Zero = 7,      // Z
+    Subtract = 6,  // N
+    HalfCarry = 5, // H
+    Carry = 4,     // C
+}
+
 #[derive(Default)] // needed so Register initalizes to zero automatically
 pub struct Cpu {
     regs: Vec<Register>,
@@ -267,9 +278,19 @@ impl Cpu {
     fn add_hl_rp(&mut self, p: u8) -> u16 {
         let reg_val = self.regs[self.rp(p)].read();
         let carry_state = self.regs[RegIndex::HL].increment(reg_val);
-        if carry_state.carry {
-            unimplemented!("Setting the carry flag is not implemented!");
+
+        // Set the condition flags
+        let af_reg = &mut self.regs[RegIndex::AF];
+        af_reg.clear_bit_lower(FlagRegister::Subtract as u8);
+        if carry_state.half_carry {
+            debug!("Setting the half-carry flag.");
+            af_reg.set_bit_lower(FlagRegister::HalfCarry as u8);
         }
+        if carry_state.carry {
+            debug!("Setting the carry flag.");
+            af_reg.set_bit_lower(FlagRegister::Carry as u8);
+        }
+
         1
     }
 
@@ -493,5 +514,40 @@ mod tests {
             }
             assert_eq!(cpu.regs[*reg_to_check].read(), 0);
         }
+    }
+
+    #[test_case(0x09, RegIndex::BC, 151, 75, 0b0000_0000; "bc register")]
+    #[test_case(0x09, RegIndex::BC, 4095, 10, 0b0010_0000; "bc register half carry")]
+    #[test_case(0x19, RegIndex::DE, 151, 75, 0b0000_0000; "de register")]
+    #[test_case(0x29, RegIndex::HL, 151, 75, 0b0000_0000; "hl register")]
+    #[test_case(0x39, RegIndex::SP, 151, 75, 0b0000_0000; "sp register")]
+    #[test_env_log::test]
+    fn test_add_hl_rp(
+        opcode: u8,
+        reg_op: RegIndex,
+        hl_val: u16,
+        reg_op_val: u16,
+        expected_flag_reg_val: u8,
+    ) {
+        let start_pc = 2; // arbitrary value
+                          // All the bytes except at start_pc are arbitrary and not used
+        let mut rom: Vec<u8> = vec![0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00];
+        rom[start_pc as usize] = opcode; // Cpu will read the instruction from here
+        let mut cpu = Cpu::new_from_vec(rom);
+        // Set up register values
+        cpu.regs[RegIndex::PC].write(start_pc as u16);
+        cpu.regs[RegIndex::HL].write(hl_val);
+        cpu.regs[reg_op].write(reg_op_val);
+        debug!("pc: {}", cpu.read_pc());
+
+        cpu.execute();
+
+        if reg_op == RegIndex::HL {
+            assert_eq!(cpu.regs[RegIndex::HL].read(), reg_op_val + reg_op_val);
+        } else {
+            assert_eq!(cpu.regs[RegIndex::HL].read(), hl_val + reg_op_val);
+            assert_eq!(cpu.regs[reg_op].read(), reg_op_val); // check that it is unchanged
+        }
+        assert_eq!(cpu.regs[RegIndex::AF].read_lower(), expected_flag_reg_val); // check that it is unchanged
     }
 } // tests module ; end
