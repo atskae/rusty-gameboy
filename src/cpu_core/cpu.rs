@@ -520,9 +520,14 @@ mod tests {
     #[test_case(0x09, RegIndex::BC, 4095, 10, 0b0010_0000; "bc register half carry")]
     #[test_case(0x09, RegIndex::BC, 65535, 25, 0b0011_0000; "bc register half carry and carry")]
     #[test_case(0x19, RegIndex::DE, 151, 75, 0b0000_0000; "de register")]
+    #[test_case(0x19, RegIndex::DE, 4095, 10, 0b0010_0000; "de register half carry")]
+    #[test_case(0x19, RegIndex::DE, 65535, 25, 0b0011_0000; "de register half carry and carry")]
     #[test_case(0x29, RegIndex::HL, 151, 75, 0b0000_0000; "hl register")]
+    #[test_case(0x29, RegIndex::HL, 4095, 4095, 0b0010_0000; "hl register half carry")]
+    #[test_case(0x29, RegIndex::HL, 65535, 65535, 0b0011_0000; "hl register half carry and carry")]
     #[test_case(0x39, RegIndex::SP, 151, 75, 0b0000_0000; "sp register")]
-    #[test_env_log::test]
+    #[test_case(0x39, RegIndex::SP, 4095, 10, 0b0010_0000; "sp register half carry")]
+    #[test_case(0x39, RegIndex::SP, 65535, 25, 0b0011_0000; "sp register half carry and carry")]
     fn test_add_hl_rp(
         opcode: u8,
         reg_op: RegIndex,
