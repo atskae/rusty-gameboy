@@ -518,6 +518,7 @@ mod tests {
 
     #[test_case(0x09, RegIndex::BC, 151, 75, 0b0000_0000; "bc register")]
     #[test_case(0x09, RegIndex::BC, 4095, 10, 0b0010_0000; "bc register half carry")]
+    #[test_case(0x09, RegIndex::BC, 65535, 25, 0b0011_0000; "bc register half carry and carry")]
     #[test_case(0x19, RegIndex::DE, 151, 75, 0b0000_0000; "de register")]
     #[test_case(0x29, RegIndex::HL, 151, 75, 0b0000_0000; "hl register")]
     #[test_case(0x39, RegIndex::SP, 151, 75, 0b0000_0000; "sp register")]
@@ -542,10 +543,15 @@ mod tests {
 
         cpu.execute();
 
+        let overflow_check = hl_val.checked_add(reg_op_val);
         if reg_op == RegIndex::HL {
-            assert_eq!(cpu.regs[RegIndex::HL].read(), reg_op_val + reg_op_val);
+            if overflow_check != None {
+                assert_eq!(cpu.regs[RegIndex::HL].read(), reg_op_val + reg_op_val);
+            }
         } else {
-            assert_eq!(cpu.regs[RegIndex::HL].read(), hl_val + reg_op_val);
+            if overflow_check != None {
+                assert_eq!(cpu.regs[RegIndex::HL].read(), hl_val + reg_op_val);
+            }
             assert_eq!(cpu.regs[reg_op].read(), reg_op_val); // check that it is unchanged
         }
         assert_eq!(cpu.regs[RegIndex::AF].read_lower(), expected_flag_reg_val); // check that it is unchanged
