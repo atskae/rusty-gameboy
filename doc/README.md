@@ -13,6 +13,11 @@ Notes on how the GameBoy works. [Old README of resources](https://github.com/ats
 
 Refresher from [The Ultimate Game Boy Talk](https://www.youtube.com/watch?v=HyzD8pNlpwI):
 
+## Notes
+* Parentheses in an instruction `(X)` mean load from the address stored in `X`
+    * Example: `LD reg, (HL)` = load the value at the address (which is stored in `HL`) into `reg`
+        * [Source](http://gameboy.mongenel.com/dmg/lesson1.html)
+
 ## DMG-CPU
 * CPU
 * Interrupt Controller
