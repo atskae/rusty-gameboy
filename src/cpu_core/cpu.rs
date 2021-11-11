@@ -100,7 +100,7 @@ impl Cpu {
     pub fn new() -> Cpu {
         let mut cpu: Cpu = Cpu {
             regs: Vec::with_capacity(RegIndex::NumRegs as usize), // only sets upper bound
-            memory: Vec::with_capacity(0xFFFF),
+            memory: vec![0; 0xFFFF],
             ..Default::default()
         };
 
@@ -596,5 +596,38 @@ mod tests {
             assert_eq!(cpu.regs[reg_op].read(), reg_op_val); // check that it is unchanged
         }
         assert_eq!(cpu.regs[RegIndex::AF].read_lower(), expected_flag_reg_val); // check that it is unchanged
+    }
+
+    #[test_case(0x02, RegIndex::BC, 0xC000, 209; "store a at address bc")]
+    #[test_case(0x12, RegIndex::DE, 0xC000, 209; "store a at address de")]
+    #[test_case(0x22, RegIndex::HL, 0xC000, 209; "store a at address hl increment")]
+    #[test_case(0x32, RegIndex::HL, 0xC000, 209; "store a at address hl decrement")]
+    fn test_store_a(opcode: u8, address_reg: RegIndex, address: u16, a_val: u8) {
+        let start_pc = 2;
+        let mut rom: Vec<u8> = vec![0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00];
+        rom[start_pc as usize] = opcode; // Cpu will read the instruction from here
+        let mut cpu = Cpu::new_from_vec(rom);
+
+        // Setup the register that will hold the memory address
+        cpu.regs[address_reg].write(address);
+        let prev_hl_val: u16 = cpu.regs[RegIndex::HL].read();
+        // Setup the value to be written to memory
+        cpu.regs[RegIndex::AF].write_upper(a_val);
+        // Set PC
+        cpu.regs[RegIndex::PC].write(start_pc as u16);
+
+        // Perform the store operation
+        cpu.execute();
+        assert_eq!(cpu.regs[RegIndex::PC].read(), start_pc + 1); // insn size
+
+        assert_eq!(cpu.memory[address as usize], a_val);
+        // Check if post-operation occurred for HL register
+        if address_reg == RegIndex::HL {
+            if opcode == 0x22 {
+                assert_eq!(cpu.regs[RegIndex::HL].read(), prev_hl_val + 1);
+            } else if opcode == 032 {
+                assert_eq!(cpu.regs[RegIndex::HL].read(), prev_hl_val - 1);
+            }
+        }
     }
 } // tests module ; end
