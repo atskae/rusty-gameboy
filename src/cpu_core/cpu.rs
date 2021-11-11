@@ -54,6 +54,7 @@ enum FlagRegister {
 #[derive(Default)] // needed so Register initalizes to zero automatically
 pub struct Cpu {
     regs: Vec<Register>,
+    memory: Vec<u8>, // 0x0000-0xFFFF; follow the GameBoy's memory map
     cycle: u16,
     // Loaded ROM
     rom: Vec<u8>,
@@ -99,6 +100,7 @@ impl Cpu {
     pub fn new() -> Cpu {
         let mut cpu: Cpu = Cpu {
             regs: Vec::with_capacity(RegIndex::NumRegs as usize), // only sets upper bound
+            memory: Vec::with_capacity(0xFFFF),
             ..Default::default()
         };
 
@@ -294,6 +296,35 @@ impl Cpu {
         1
     }
 
+    // Store the value in register A into the address
+    fn store_a(&mut self, p: u8) -> u16 {
+        let address_reg: RegIndex = match p {
+            0 => RegIndex::BC,
+            1 => RegIndex::DE,
+            2 => RegIndex::HL, // increment after storing
+            3 => RegIndex::HL, // decrement after storing
+            _ => {
+                warn!("Invalid p={} for store_a. Using HL.", p);
+                RegIndex::HL
+            }
+        };
+
+        let address: usize = self.regs[address_reg].read() as usize;
+        let a_val: u8 = self.regs[RegIndex::AF].read_upper();
+        self.memory[address] = a_val;
+
+        // HL has special post-operation
+        if p == 2 {
+            debug!("store_a post-increment HL");
+            self.regs[RegIndex::HL].increment(1);
+        } else if p == 3 {
+            debug!("store_a post-decrement HL");
+            self.regs[RegIndex::HL].decrement(1);
+        }
+
+        1
+    }
+
     /// Decodes then executes the instruction pointed to by the program_counter
     // Fields in the GameBoy manual label fields as single characters
     #[allow(clippy::many_single_char_names)]
@@ -328,6 +359,11 @@ impl Cpu {
                     1 => match q {
                         0 => self.ld_d16_rp(p),
                         1 => self.add_hl_rp(p),
+                        _ => self.invalid_opcode(opcode_byte),
+                    },
+                    2 => match q {
+                        0 => self.store_a(p),
+                        1 => unimplemented!("Not implemented this case of q!"),
                         _ => self.invalid_opcode(opcode_byte),
                     },
                     _ => unimplemented!("Not implemented this case of z!"),
