@@ -647,4 +647,38 @@ mod tests {
             }
         }
     }
+
+    #[test_case(0x0A, RegIndex::BC, 0xC000, 209; "load val at address bc into reg a")]
+    #[test_case(0x1A, RegIndex::DE, 0xC000, 209; "load val at address de into reg a")]
+    #[test_case(0x2A, RegIndex::HL, 0xC000, 209; "load val at address hl increment")]
+    #[test_case(0x3A, RegIndex::HL, 0xC000, 209; "load val at address hl decrement")]
+    fn test_load_a(opcode: u8, address_reg: RegIndex, address: u16, val: u8) {
+        let start_pc = 2;
+        let mut rom: Vec<u8> = vec![0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00];
+        rom[start_pc as usize] = opcode; // Cpu will read the instruction from here
+        let mut cpu = Cpu::new_from_vec(rom);
+
+        // Setup the register that will hold the memory address
+        cpu.regs[address_reg].write(address);
+        let prev_hl_val: u16 = cpu.regs[RegIndex::HL].read();
+        // Setup the value to be loaded from memory
+        cpu.memory[address as usize] = val;
+        // Set PC
+        cpu.regs[RegIndex::PC].write(start_pc as u16);
+
+        // Perform the store operation
+        assert_ne!(cpu.regs[RegIndex::AF].read_upper(), val); // Ensure clean state beforehand
+        cpu.execute();
+        assert_eq!(cpu.regs[RegIndex::PC].read(), start_pc + 1); // insn size
+        assert_eq!(cpu.regs[RegIndex::AF].read_upper(), val);
+
+        // Check if post-operation occurred for HL register
+        if address_reg == RegIndex::HL {
+            if opcode == 0x22 {
+                assert_eq!(cpu.regs[RegIndex::HL].read(), prev_hl_val + 1);
+            } else if opcode == 032 {
+                assert_eq!(cpu.regs[RegIndex::HL].read(), prev_hl_val - 1);
+            }
+        }
+    }
 } // tests module ; end
