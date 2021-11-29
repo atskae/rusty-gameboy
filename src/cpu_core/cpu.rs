@@ -6,6 +6,8 @@ use std::ops::{Index, IndexMut};
 use std::path::PathBuf;
 
 use crate::cli::Subcommand;
+use crate::cpu_core::flag_register::FlagRegister;
+use crate::cpu_core::insn::Insn;
 use crate::cpu_core::register::{Register, RegisterOperation};
 
 // Indices into Cpu::registers vector
@@ -38,17 +40,6 @@ impl IndexMut<RegIndex> for Vec<Register> {
     fn index_mut(&mut self, register_index: RegIndex) -> &mut Self::Output {
         &mut self[register_index as usize]
     }
-}
-
-/// Enum that presents the bit position of the
-/// conditional flag in the Flag register
-#[derive(Clone, Copy, Debug)]
-#[repr(u8)]
-enum FlagRegister {
-    //Zero = 7,      // Z
-    Subtract = 6,  // N
-    HalfCarry = 5, // H
-    Carry = 4,     // C
 }
 
 #[derive(Default)] // needed so Register initalizes to zero automatically
@@ -175,9 +166,9 @@ impl Cpu {
             https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
     */
 
-    fn invalid_opcode(&self, opcode: u8) -> u16 {
+    fn invalid_opcode(&self, opcode: u8) -> Insn {
         error!("Invalid opcode! {:#02x}", opcode);
-        0
+        Insn::invalid()
     }
 
     // cc[index]
@@ -215,7 +206,12 @@ impl Cpu {
     */
 
     // Loads a 16-bit value into a register
-    fn ld_d16_rp(&mut self, index: u8) -> u16 {
+    fn ld_d16_rp(&mut self, index: u8) -> Insn {
+        let insn = Insn {
+            size: 3,
+            cycles: 12,
+        };
+
         let pc = self.read_pc() as usize; // points to the opcode
         let mut imm16: u16 = self.rom[pc + 1] as u16;
         imm16 <<= 8;
@@ -225,18 +221,23 @@ impl Cpu {
         self.regs[reg_index].write(imm16);
 
         debug!("LD {:?}, {:#02x}", reg_index, imm16);
-        self.cycle += 12;
-        3
+        self.cycle += insn.cycles;
+        insn
     }
 
     /// Load a 16-bit value into the stack pointer
-    fn ld_d16_sp(&mut self) -> u16 {
+    fn ld_d16_sp(&mut self) -> Insn {
         // 3 is the index into rp that corresponds to the SP register
         self.ld_d16_rp(3)
     }
 
     /// Jump using an 8-bit offset
-    fn jr_d8(&mut self) -> u16 {
+    fn jr_d8(&mut self) -> Insn {
+        let insn = Insn {
+            size: 2,
+            cycles: 12,
+        };
+
         let pc = self.read_pc() as usize; // points to the opcode
         debug!(
             "displacement as u8: {:#02x} = {}",
@@ -258,26 +259,34 @@ impl Cpu {
         }
         self.regs[RegIndex::PC].write(new_pc);
 
-        self.cycle += 12;
-        0 // pc_increment
+        self.cycle += insn.cycles;
+        insn
     }
 
     /// Conditional jump using an 8-bit offset
-    fn jr_d8_cond(&mut self, y: u8) -> u16 {
+    fn jr_d8_cond(&mut self, y: u8) -> Insn {
+        let insn = Insn {
+            size: 2,
+            cycles: 12,
+        };
+
         if y > 7 {
             warn!("y={} is too large.", y);
-            return 0;
+            return insn;
         }
 
         if self.cc(y - 4) {
             return self.jr_d8();
         }
         info!("Jump condition not satisfied.");
-        0 // pc_increment
+
+        insn
     }
 
     /// Add a 16-bit value from a register to HL
-    fn add_hl_rp(&mut self, p: u8) -> u16 {
+    fn add_hl_rp(&mut self, p: u8) -> Insn {
+        let insn = Insn { size: 1, cycles: 8 };
+
         let reg_val = self.regs[self.rp(p)].read();
         let carry_state = self.regs[RegIndex::HL].increment(reg_val);
 
@@ -293,12 +302,12 @@ impl Cpu {
             af_reg.set_bit_lower(FlagRegister::Carry as u8);
         }
 
-        1
+        insn
     }
 
     // Perform a load or store using register A
     // If is_store is true, perform a store operation. Otherwise, perform a load
-    fn a_mem_op(&mut self, p: u8, is_store: bool) -> u16 {
+    fn a_mem_op(&mut self, p: u8, is_store: bool) -> Insn {
         let address_reg: RegIndex = match p {
             0 => RegIndex::BC,
             1 => RegIndex::DE,
@@ -329,16 +338,16 @@ impl Cpu {
             self.regs[RegIndex::HL].decrement(1);
         }
 
-        1
+        Insn { size: 1, cycles: 8 }
     }
 
     // Store the value in register A into the address
-    fn store_a(&mut self, p: u8) -> u16 {
+    fn store_a(&mut self, p: u8) -> Insn {
         self.a_mem_op(p, true)
     }
 
     // Load the value at address held in register into register A
-    fn load_a(&mut self, p: u8) -> u16 {
+    fn load_a(&mut self, p: u8) -> Insn {
         self.a_mem_op(p, false)
     }
 
@@ -359,18 +368,26 @@ impl Cpu {
         let q: u8 = y & 0b001;
 
         // Unprefixed opcodes
-        let pc_increment: u16 = match x {
+        let mut is_jump = false;
+        let insn: Insn = match x {
             0 => {
                 match z {
                     0 => match y {
-                        0 => 1,                // NOP
+                        0 => Insn::nop(),      // NOP
                         1 => self.ld_d16_sp(), // Load immediate into SP
                         2 => {
                             // STOP
                             unimplemented!("STOP not implemented!");
                         }
-                        3 => self.jr_d8(),           // Jump
-                        4..=7 => self.jr_d8_cond(y), // Conditional jump
+                        3 => {
+                            // Jump
+                            is_jump = true;
+                            self.jr_d8()
+                        }
+                        4..=7 => {
+                            is_jump = true;
+                            self.jr_d8_cond(y)
+                        } // Conditional jump
                         _ => self.invalid_opcode(opcode_byte),
                     },
                     1 => match q {
@@ -390,7 +407,9 @@ impl Cpu {
         };
 
         // Increment the program counter
-        self.increment_reg(RegIndex::PC, pc_increment);
+        if !is_jump {
+            self.increment_reg(RegIndex::PC, insn.size);
+        }
     }
 
     pub fn start(&mut self, subcommand: Subcommand) {
