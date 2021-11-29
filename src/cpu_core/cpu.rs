@@ -296,8 +296,9 @@ impl Cpu {
         1
     }
 
-    // Store the value in register A into the address
-    fn store_a(&mut self, p: u8) -> u16 {
+    // Perform a load or store using register A
+    // If is_store is true, perform a store operation. Otherwise, perform a load
+    fn a_mem_op(&mut self, p: u8, is_store: bool) -> u16 {
         let address_reg: RegIndex = match p {
             0 => RegIndex::BC,
             1 => RegIndex::DE,
@@ -310,19 +311,35 @@ impl Cpu {
         };
 
         let address: usize = self.regs[address_reg].read() as usize;
-        let a_val: u8 = self.regs[RegIndex::AF].read_upper();
-        self.memory[address] = a_val;
+        if is_store {
+            let a_val: u8 = self.regs[RegIndex::AF].read_upper();
+            self.memory[address] = a_val;
+        } else {
+            // is a load instruction
+            let val: u8 = self.memory[address];
+            self.regs[RegIndex::AF].write_upper(val);
+        }
 
         // HL has special post-operation
         if p == 2 {
-            debug!("store_a post-increment HL");
+            debug!("a_mem_op, is_store={}, post-increment HL", is_store);
             self.regs[RegIndex::HL].increment(1);
         } else if p == 3 {
-            debug!("store_a post-decrement HL");
+            debug!("a_mem_op, is_store={}, post-decrement HL", is_store);
             self.regs[RegIndex::HL].decrement(1);
         }
 
         1
+    }
+
+    // Store the value in register A into the address
+    fn store_a(&mut self, p: u8) -> u16 {
+        self.a_mem_op(p, true)
+    }
+
+    // Load the value at address held in register into register A
+    fn load_a(&mut self, p: u8) -> u16 {
+        self.a_mem_op(p, false)
     }
 
     /// Decodes then executes the instruction pointed to by the program_counter
@@ -363,7 +380,7 @@ impl Cpu {
                     },
                     2 => match q {
                         0 => self.store_a(p),
-                        1 => unimplemented!("Not implemented this case of q!"),
+                        1 => self.load_a(p),
                         _ => self.invalid_opcode(opcode_byte),
                     },
                     _ => unimplemented!("Not implemented this case of z!"),
