@@ -6,7 +6,7 @@ use std::ops::{Index, IndexMut};
 use std::path::PathBuf;
 
 use crate::cli::Subcommand;
-use crate::cpu_core::flag_register::FlagRegister;
+use crate::cpu_core::flag_register::{FlagEffect, FlagRegister};
 use crate::cpu_core::insn::Insn;
 use crate::cpu_core::register::{Register, RegisterOperation};
 
@@ -210,6 +210,7 @@ impl Cpu {
         let insn = Insn {
             size: 3,
             cycles: 12,
+            ..Default::default()
         };
 
         let pc = self.read_pc() as usize; // points to the opcode
@@ -236,6 +237,7 @@ impl Cpu {
         let insn = Insn {
             size: 2,
             cycles: 12,
+            ..Default::default()
         };
 
         let pc = self.read_pc() as usize; // points to the opcode
@@ -268,6 +270,7 @@ impl Cpu {
         let insn = Insn {
             size: 2,
             cycles: 12,
+            ..Default::default()
         };
 
         if y > 7 {
@@ -285,7 +288,16 @@ impl Cpu {
 
     /// Add a 16-bit value from a register to HL
     fn add_hl_rp(&mut self, p: u8) -> Insn {
-        let insn = Insn { size: 1, cycles: 8 };
+        let insn = Insn {
+            size: 1,
+            cycles: 8,
+            flags: [
+                FlagEffect::None,
+                FlagEffect::Reset,
+                FlagEffect::Result,
+                FlagEffect::Result,
+            ],
+        };
 
         let reg_val = self.regs[self.rp(p)].read();
         let carry_state = self.regs[RegIndex::HL].increment(reg_val);
@@ -338,7 +350,11 @@ impl Cpu {
             self.regs[RegIndex::HL].decrement(1);
         }
 
-        Insn { size: 1, cycles: 8 }
+        Insn {
+            size: 1,
+            cycles: 8,
+            ..Default::default()
+        }
     }
 
     // Store the value in register A into the address
