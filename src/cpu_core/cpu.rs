@@ -416,6 +416,11 @@ impl Cpu {
                         1 => self.load_a(p),
                         _ => self.invalid_opcode(opcode_byte),
                     },
+                    3 => match q {
+                        0 => unimplemented!("z={}, q={} not implemented!", z, q),
+                        1 => unimplemented!("z={}, q={} not implemented!", z, q),
+                        _ => self.invalid_opcode(opcode_byte),
+                    },
                     _ => unimplemented!("Not implemented this case of z!"),
                 }
             }
