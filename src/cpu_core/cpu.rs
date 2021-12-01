@@ -367,6 +367,38 @@ impl Cpu {
         self.a_mem_op(p, false)
     }
 
+    fn inc_rp(&mut self, p: u8) -> Insn {
+        let reg = self.rp(p);
+        self.regs[reg].increment(1);
+
+        Insn {
+            size: 1,
+            cycles: 4,
+            flags: [
+                FlagEffect::Result,
+                FlagEffect::Reset,
+                FlagEffect::Result,
+                FlagEffect::None,
+            ],
+        }
+    }
+
+    fn dec_rp(&mut self, p: u8) -> Insn {
+        let reg = self.rp(p);
+        self.regs[reg].decrement(1);
+
+        Insn {
+            size: 1,
+            cycles: 4,
+            flags: [
+                FlagEffect::Result,
+                FlagEffect::Set,
+                FlagEffect::Result,
+                FlagEffect::None,
+            ],
+        }
+    }
+
     /// Decodes then executes the instruction pointed to by the program_counter
     // Fields in the GameBoy manual label fields as single characters
     #[allow(clippy::many_single_char_names)]
@@ -417,8 +449,8 @@ impl Cpu {
                         _ => self.invalid_opcode(opcode_byte),
                     },
                     3 => match q {
-                        0 => unimplemented!("z={}, q={} not implemented!", z, q),
-                        1 => unimplemented!("z={}, q={} not implemented!", z, q),
+                        0 => self.inc_rp(p),
+                        1 => self.dec_rp(p),
                         _ => self.invalid_opcode(opcode_byte),
                     },
                     _ => unimplemented!("Not implemented this case of z!"),

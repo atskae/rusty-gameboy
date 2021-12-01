@@ -1,6 +1,6 @@
 pub enum FlagEffect {
     Reset,
-    // Set,
+    Set,
     None,   // do nothing
     Result, // the flag effect depends on the result of the operation
 }
