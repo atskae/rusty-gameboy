@@ -385,7 +385,8 @@ impl Cpu {
 
     fn dec_rp(&mut self, p: u8) -> Insn {
         let reg = self.rp(p);
-        self.regs[reg].decrement(1);
+        let carry_state = self.regs[reg].decrement(1);
+        debug!("carry_state={} after dec_rp()", carry_state.overflow);
 
         Insn {
             size: 1,
@@ -752,5 +753,35 @@ mod tests {
                 assert_eq!(cpu.regs[RegIndex::HL].read(), prev_hl_val - 1);
             }
         }
+    }
+
+    #[test_case(0x03, RegIndex::BC, true; "increment bc")]
+    #[test_case(0x13, RegIndex::DE, true; "increment de")]
+    #[test_case(0x23, RegIndex::HL, true; "increment hl")]
+    #[test_case(0x33, RegIndex::SP, true; "increment sp")]
+    #[test_case(0x0B, RegIndex::BC, false; "decrement bc")]
+    #[test_case(0x1B, RegIndex::DE, false; "decrement de")]
+    #[test_case(0x2B, RegIndex::HL, false; "decrement hl")]
+    #[test_case(0x3B, RegIndex::SP, false; "decrement sp")]
+    fn test_inc_dec_rp(opcode: u8, reg: RegIndex, is_increment: bool) {
+        let start_pc = 2;
+        let mut rom: Vec<u8> = vec![0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00];
+        rom[start_pc as usize] = opcode; // Cpu will read the instruction from here
+        let mut cpu = Cpu::new_from_vec(rom);
+
+        // Start with some arbitrary value to increment
+        let val = 27;
+        cpu.regs[reg].write(val);
+        // Set the pc
+        cpu.regs[RegIndex::PC].write(start_pc as u16);
+
+        // Perform the increment
+        cpu.execute();
+        if is_increment {
+            assert_eq!(cpu.regs[reg].read(), val + 1);
+        } else {
+            assert_eq!(cpu.regs[reg].read(), val - 1);
+        }
+        assert_eq!(cpu.regs[RegIndex::PC].read(), start_pc + 1); // insn size
     }
 } // tests module ; end
